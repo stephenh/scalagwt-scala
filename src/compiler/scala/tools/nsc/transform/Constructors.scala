@@ -90,11 +90,11 @@ abstract class Constructors extends Transform {
         intoConstructorTransformer.transform(
           new ChangeOwnerTraverser(oldowner, constr.symbol)(tree))
 
-      def canBeMoved(tree: Tree) = tree match {
+      def canBeMoved(tree: Tree) = (settings.target.value != "jvm-src") && (tree match {
         //todo: eliminate thisRefSeen
         case ValDef(mods, _, _, _) => (mods hasFlag PRESUPER | PARAMACCESSOR) || !thisRefSeen
         case _ => false
-      }
+      })
 
       def mkAssign(to: Symbol, from: Tree): Tree =
         atPos(to.pos) {

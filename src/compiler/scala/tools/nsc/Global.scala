@@ -28,6 +28,7 @@ import transform._
 import backend.icode.{ICodes, GenICode, Checkers}
 import backend.ScalaPrimitives
 import backend.jvm.GenJVM
+import backend.GenJava
 import backend.msil.GenMSIL
 import backend.opt.{Inliners, ClosureElimination, DeadCodeElimination}
 import backend.icode.analysis._
@@ -365,6 +366,10 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     val global: Global.this.type = Global.this
   }
 
+  object genJava extends GenJava {
+    val global: Global.this.type = Global.this
+  }
+
   object genMSIL extends GenMSIL {
     val global: Global.this.type = Global.this
   }
@@ -398,12 +403,12 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     flatten,         // get rid of inner classes
     mixer,           // do mixin composition
     cleanup,         // some platform-specific cleanups
-
     genicode,        // generate portable intermediate code
     inliner,         // optimization: do inlining
     closureElimination, // optimization: get rid of uncalled closures
     deadCode,           // optimization: get rid of dead cpde
-    if (forMSIL) genMSIL else genJVM, // generate .class files
+    if (forMSIL) genMSIL else
+    if (settings.target.value == "jvm-src") genJava else genJVM,
     sampleTransform
   )
 

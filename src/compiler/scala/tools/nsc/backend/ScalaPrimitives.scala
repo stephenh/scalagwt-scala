@@ -106,15 +106,15 @@ abstract class ScalaPrimitives {
   // RunTime operations
   final val BOX = 110                          // RunTime.box_<X>(x)
   final val UNBOX = 111                        // RunTime.unbox_<X>(x)
-  final val NEW_ZARRAY = 112                   // RunTime.zarray(x)
-  final val NEW_BARRAY = 113                   // RunTime.barray(x)
-  final val NEW_SARRAY = 114                   // RunTime.sarray(x)
-  final val NEW_CARRAY = 115                   // RunTime.carray(x)
-  final val NEW_IARRAY = 116                   // RunTime.iarray(x)
-  final val NEW_LARRAY = 117                   // RunTime.larray(x)
-  final val NEW_FARRAY = 118                   // RunTime.farray(x)
-  final val NEW_DARRAY = 119                   // RunTime.darray(x)
-  final val NEW_OARRAY = 120                   // RunTime.oarray(x)
+//   final val NEW_ZARRAY = 112                   // RunTime.zarray(x)
+//   final val NEW_BARRAY = 113                   // RunTime.barray(x)
+//   final val NEW_SARRAY = 114                   // RunTime.sarray(x)
+//   final val NEW_CARRAY = 115                   // RunTime.carray(x)
+//   final val NEW_IARRAY = 116                   // RunTime.iarray(x)
+//   final val NEW_LARRAY = 117                   // RunTime.larray(x)
+//   final val NEW_FARRAY = 118                   // RunTime.farray(x)
+//   final val NEW_DARRAY = 119                   // RunTime.darray(x)
+//   final val NEW_OARRAY = 120                   // RunTime.oarray(x)
 
   final val ZARRAY_LENGTH = 131                // RunTime.zarray_length(x)
   final val BARRAY_LENGTH = 132                // RunTime.barray_length(x)
@@ -489,14 +489,14 @@ abstract class ScalaPrimitives {
 
   /** Check whether the given operation code is an array operation. */
   def isArrayOp(code: Int): Boolean =
-    isArrayNew(code) | isArrayLength(code) | isArrayGet(code) | isArraySet(code)
+    /*isArrayNew(code) |*/ isArrayLength(code) | isArrayGet(code) | isArraySet(code)
 
-  def isArrayNew(code: Int): Boolean = code match {
-    case NEW_ZARRAY | NEW_BARRAY | NEW_SARRAY | NEW_CARRAY |
-         NEW_IARRAY | NEW_LARRAY | NEW_FARRAY | NEW_DARRAY |
-         NEW_OARRAY => true
-    case _ => false
-  }
+//   def isArrayNew(code: Int): Boolean = code match {
+//     case NEW_ZARRAY | NEW_BARRAY | NEW_SARRAY | NEW_CARRAY |
+//          NEW_IARRAY | NEW_LARRAY | NEW_FARRAY | NEW_DARRAY |
+//          NEW_OARRAY => true
+//     case _ => false
+//   }
 
   def isArrayLength(code: Int): Boolean = code match {
     case ZARRAY_LENGTH | BARRAY_LENGTH | SARRAY_LENGTH | CARRAY_LENGTH |
@@ -580,17 +580,14 @@ abstract class ScalaPrimitives {
    *            operations
    */
   def getPrimitive(fun: Symbol, tpe: Type): Int = {
-    import definitions._
-    val code = getPrimitive(fun)
 
-    var elem: Type = null
-    tpe match {
-      case TypeRef(_, sym, _elem :: Nil)
-           if (sym == ArrayClass) => elem = _elem
-      case _ => ()
+    def elem: Type = tpe match {
+      case TypeRef(_, sym, List(elemtype)) if (sym == definitions.ArrayClass) =>
+        elemtype
+      case _ => null
     }
 
-    code match {
+    getPrimitive(fun) match {
 
       case APPLY =>
         toTypeKind(elem) match {
@@ -638,7 +635,7 @@ abstract class ScalaPrimitives {
             abort("Unexpected array element type: " + elem)
         }
 
-      case _ =>
+      case code @ _ =>
         code
     }
   }

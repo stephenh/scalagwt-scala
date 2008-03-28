@@ -1410,8 +1410,8 @@ abstract class GenJVM extends SubComponent {
      * </p>
      */
     def javaName(sym: Symbol): String = {
-      val suffix = if (sym.hasFlag(Flags.MODULE) && !sym.isMethod &&
-                        !sym.isImplClass && 
+      def suffix = if (sym.hasFlag(Flags.MODULE) && !sym.isMethod &&
+                        !sym.isImplClass &&
                         !sym.hasFlag(Flags.JAVA)) "$" else "";
 
       if (sym == definitions.AllClass)
