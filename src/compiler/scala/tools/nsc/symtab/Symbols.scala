@@ -86,12 +86,15 @@ trait Symbols {
 
     def setAttributes(attrs: List[AnnotationInfo]): this.type = { this.attributes = attrs; this }
     
-    /** Does this symbol have an attribute of the given class? */
-    def hasAttribute(cls: Symbol): Boolean = 
-      attributes.exists { 
+    /** Find the attributes on this symbol for the given class */
+    def attributes(cls: Symbol): List[AnnotationInfo] = 
+      attributes filter { 
         case AnnotationInfo(tp, _, _) if tp.typeSymbol == cls => true
         case _ => false
-    }
+      }
+    
+    /** Does this symbol have an attribute of the given class? */
+    def hasAttribute(cls: Symbol): Boolean = !attributes(cls).isEmpty
 
     var privateWithin: Symbol = _
 
