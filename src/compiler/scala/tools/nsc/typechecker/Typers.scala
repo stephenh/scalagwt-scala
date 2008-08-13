@@ -2112,7 +2112,10 @@ trait Typers { self: Analyzer =>
      */
     protected def typed1(tree: Tree, mode: Int, pt: Type): Tree = {
       //Console.println("typed1("+tree.getClass()+","+Integer.toHexString(mode)+","+pt+")")
-      def ptOrLub(tps: List[Type]) = if (isFullyDefined(pt)) pt else lub(tps map (_.deconst))
+      def ptOrLub(tps: List[Type]) =
+        if (tps forall (_ =:= AllClass.tpe)) AllClass.tpe
+        else if (isFullyDefined(pt)) pt
+        else lub(tps map (_.deconst))
       
       //@M! get the type of the qualifier in a Select tree, otherwise: NoType
       def prefixType(fun: Tree): Type = fun match { 
