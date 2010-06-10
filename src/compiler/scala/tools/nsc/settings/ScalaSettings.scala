@@ -42,7 +42,6 @@ trait ScalaSettings extends AbsScalaSettings with StandardScalaSettings {
                                             withPostSetHook(_ => List(inline, Xcloselim, Xdce) foreach (_.value = true))
   val nospecialization = BooleanSetting    ("-no-specialization", "Ignore @specialize annotations.")
 
-
   /**
    * -X "Advanced" settings
    */

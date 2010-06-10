@@ -4,7 +4,7 @@
  */
 
 package scala.tools.nsc
-package interpreter
+package repl
 
 /** This has a lot of duplication with other methods in Symbols and Types,
  *  but repl completion utility is very sensitive to precise output.  Best
@@ -14,24 +14,8 @@ package interpreter
 trait CompletionOutput {
   self: Completion =>
   
-  import global._
-  import definitions.{ NothingClass, AnyClass, isTupleType, isFunctionType, isRepeatedParamType }
-  
-  /** Reducing fully qualified noise for some common packages.
-   */
-  val typeTransforms = List(
-    "java.lang." -> "",
-    "scala.collection.immutable." -> "immutable.",
-    "scala.collection.mutable." -> "mutable.",
-    "scala.collection.generic." -> "generic."
-  )
-    
-  def quietString(tp: String): String =
-    typeTransforms.foldLeft(tp) {
-      case (str, (prefix, replacement)) =>
-        if (str startsWith prefix) replacement + (str stripPrefix prefix)
-        else str
-    }
+  import repl.compiler._
+  import definitions.{ isTupleType, isFunctionType, isRepeatedParamType }
   
   class MethodSymbolOutput(method: Symbol) {
     val pkg       = method.ownerChain find (_.isPackageClass) map (_.fullName) getOrElse ""

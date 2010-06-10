@@ -4,13 +4,13 @@
  */
  
 package scala.tools.nsc
-package interpreter
+package repl
 
 import xml.{ XML, Group, Node, NodeSeq }
 import XMLCompletion._
 import scala.collection.mutable.HashMap
 
-class XMLCompletion(root: Node) extends CompletionAware {  
+class XMLCompletion(root: Node) extends ExecCompletionAware[Node] {  
   private val nodeCache = new HashMap[String, Node]
   private def getNode(s: String): Option[Node] = {
     completions // make sure cache is populated

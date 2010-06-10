@@ -4,13 +4,12 @@
  */
 
 package scala.tools.nsc
-package interpreter
+package repl
 
 import java.io.File
 import java.lang.reflect
 import java.util.jar.{ JarEntry, JarFile }
 import java.util.concurrent.ConcurrentHashMap
-import util.ScalaClassLoader
 import ScalaClassLoader.getSystemLoader
 
 object ByteCode {
@@ -40,6 +39,14 @@ object ByteCode {
     }
     yield names  
   
+  def scalaSigBytesForClassBytes(bytes: Array[Byte]): Option[Array[Byte]] =
+    for {
+      module <- DECODER
+      method <- decoderMethod("scalaSigAnnotationBytes", classOf[Array[Byte]])
+      names <- method.invoke(module, bytes).asInstanceOf[Option[Array[Byte]]]
+    }
+    yield names
+  
   /** Attempts to retrieve case parameter names for given class name.
    */
   def caseParamNamesForPath(path: String) =
@@ -49,16 +56,5 @@ object ByteCode {
       names <- method.invoke(module, path).asInstanceOf[Option[List[String]]]
     }
     yield names
-
-  def aliasesForPackage(pkg: String) = aliasMap flatMap (_(pkg))
-  
-  /** Attempts to find type aliases in package objects.
-   */
-  def aliasForType(path: String): Option[String] = {
-    val (pkg, name) = (path lastIndexOf '.') match {
-      case -1   => return None
-      case idx  => (path take idx, path drop (idx + 1))
-    }
-    aliasesForPackage(pkg) flatMap (_ get name)
-  }
 }
+

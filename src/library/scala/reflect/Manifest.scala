@@ -195,7 +195,8 @@ object Manifest {
        *  Pattern matching _: AnyRef matches everything because of boxing.
        */
       lazy val erasure = value.getClass
-      override lazy val toString = value.toString + ".type"
+      private def erasureName = erasure.getName
+      override lazy val toString = Predef.augmentString(erasureName).stripSuffix("$") + ".type"
     }
 
   /** Manifest for the class type `clazz[args]', where `clazz' is

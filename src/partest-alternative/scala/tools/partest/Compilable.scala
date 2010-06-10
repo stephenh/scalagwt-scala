@@ -55,11 +55,11 @@ trait PartestCompilation {
      *  Normally args will be List("Test", "jvm"), main class and arg to it.
      */
     def runScala(args: List[String]): Boolean = {
-      val scalaRunnerClass = "scala.tools.nsc.MainGenericRunner"
+      val scalaRunnerClass = "scala.tools.nsc.repl.Main"
 
       // java $JAVA_OPTS <javaopts> -classpath <cp>
       val javaCmdAndOptions = javaCmd +: assembleJavaArgs(List(javacpArg))
-      // MainGenericRunner -usejavacp <scalacopts> Test jvm
+      // repl.Main -usejavacp <scalacopts> Test jvm
       val scalaCmdAndOptions = List(scalaRunnerClass, scalacpArg) ++ assembleScalacArgs(args)
       // Assembled
       val cmd = fromArgs(javaCmdAndOptions ++ createPropertyString() ++ scalaCmdAndOptions)

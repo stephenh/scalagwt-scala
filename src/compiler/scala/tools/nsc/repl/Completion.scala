@@ -5,7 +5,7 @@
 
 
 package scala.tools.nsc
-package interpreter
+package repl
 
 import jline._
 import java.util.{ List => JList }
@@ -36,31 +36,16 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
   private var verbosity: Int = 0
   def resetVerbosity() = verbosity = 0
   
-  def isCompletionDebug = repl.isCompletionDebug
+  import repl.{ isCompletionDebug, isReplDebug }
   def DBG(msg: => Any) = if (isCompletionDebug) println(msg.toString)
   def debugging[T](msg: String): T => T = (res: T) => returning[T](res)(x => DBG(msg + x))
   
-  lazy val global: repl.compiler.type = repl.compiler
-  import global._
+  import repl.compiler._
   import definitions.{ PredefModule, RootClass, AnyClass, AnyRefClass, ScalaPackage, JavaLangPackage }
+  def CompletionAwareClass = definitions.getClass("scala.tools.nsc.repl.CompletionAware")
 
-  // XXX not yet used.
-  lazy val dottedPaths = {
-    def walk(tp: Type): scala.List[Symbol] = {
-      val pkgs = tp.nonPrivateMembers filter (_.isPackage)
-      pkgs ++ (pkgs map (_.tpe) flatMap walk)
-    }
-    walk(RootClass.tpe)
-  }
-  
-  def getType(name: String, isModule: Boolean) = {
-    val f = if (isModule) definitions.getModule(_: Name) else definitions.getClass(_: Name)
-    try Some(f(name).tpe)
-    catch { case _: MissingRequirementError => None }
-  }
-  
-  def typeOf(name: String) = getType(name, false)
-  def moduleOf(name: String) = getType(name, true)
+  def anyRefMethodsToShow = List("isInstanceOf", "asInstanceOf", "toString")
+  def topLevelNever(s: String) = anyRefMethodsToShow contains s
     
   trait CompilerCompletion {
     def tp: Type
@@ -73,11 +58,11 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
     // for some reason any's members don't show up in subclasses, which
     // we need so 5.<tab> offers asInstanceOf etc.
     private def anyMembers = AnyClass.tpe.nonPrivateMembers
-    def anyRefMethodsToShow = List("isInstanceOf", "asInstanceOf", "toString")
 
     def tos(sym: Symbol) = sym.name.decode.toString
     def memberNamed(s: String) = members find (x => tos(x) == s)
     def hasMethod(s: String) = methods exists (x => tos(x) == s)
+    def memberIsAware(s: String) = memberNamed(s) exists (_.tpe <:< CompletionAwareClass.tpe)
     
     // XXX we'd like to say "filterNot (_.isDeprecated)" but this causes the
     // compiler to crash for reasons not yet known.
@@ -93,6 +78,7 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
   }
   
   object TypeMemberCompletion {
+    def apply(name: String): TypeMemberCompletion = new TypeMemberCompletion(name)
     def apply(tp: Type): TypeMemberCompletion = {
       if (tp.typeSymbol.isPackageClass) new PackageCompletion(tp)
       else new TypeMemberCompletion(tp)
@@ -101,6 +87,8 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
   }
   
   class TypeMemberCompletion(val tp: Type) extends CompletionAware with CompilerCompletion {
+    def this(name: String) = this(definitions.getClass(name).tpe)
+
     def excludeEndsWith: List[String] = Nil
     def excludeStartsWith: List[String] = List("<") // <byname>, <repeated>, etc.
     def excludeNames: List[String] = anyref.methodNames -- anyRefMethodsToShow ++ List("_root_")
@@ -125,8 +113,8 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
     def completions(verbosity: Int) =
       debugging(tp + " completions ==> ")(filtered(memberNames))
     
-    override def follow(s: String): Option[CompletionAware] =
-      debugging(tp + " -> '" + s + "' ==> ")(memberNamed(s) map (x => TypeMemberCompletion(x.tpe)))      
+    override def follow(s: String): Option[CompletionAware] =      
+      debugging(tp + ".follow(" + s + ") ==> ")(memberNamed(s) map (x => TypeMemberCompletion(x.tpe)))
     
     override def alternativesFor(id: String): List[String] =
       debugging(id + " alternatives ==> ") {
@@ -161,28 +149,12 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
   
   // the unqualified vals/defs/etc visible in the repl
   object ids extends CompletionAware {
-    override def completions(verbosity: Int) = repl.unqualifiedIds ::: List("classOf")
-    // we try to use the compiler and fall back on reflection if necessary
-    // (which at present is for anything defined in the repl session.)
-    override def follow(id: String) =
-      if (completions(0) contains id) {
-        for (clazz <- repl clazzForIdent id) yield {
-          // XXX The isMemberClass check is a workaround for the crasher described
-          // in the comments of #3431.  The issue as described by iulian is:
-          //
-          // Inner classes exist as symbols
-          // inside their enclosing class, but also inside their package, with a mangled
-          // name (A$B). The mangled names should never be loaded, and exist only for the
-          // optimizer, which sometimes cannot get the right symbol, but it doesn't care
-          // and loads the bytecode anyway.
-          //
-          // So this solution is incorrect, but in the short term the simple fix is
-          // to skip the compiler any time completion is requested on a nested class.
-          if (clazz.isMemberClass) new InstanceCompletion(clazz)
-          else (typeOf(clazz.getName) map TypeMemberCompletion.apply) getOrElse new InstanceCompletion(clazz)
-        }
+    implicit def nameListToStrings(xs: List[Name]): List[String] = xs map (_.toString)
+    override def completions(verbosity: Int) = repl.termNames :+ nme.classOf
+    override def follow(id: String): Option[CompletionAware] =
+      repl.completionAware(id) orElse {
+        repl.latest(newTermName(id)) map (r => TypeMemberCompletion(r.tpe))
       }
-      else None
   }
 
   // wildcard imports in the repl like "import global._" or "import String._"
@@ -191,7 +163,7 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
   // literal Ints, Strings, etc.
   object literals extends CompletionAware {    
     def simpleParse(code: String): Tree = {
-      val unit    = new CompilationUnit(new util.BatchSourceFile("<console>", code))
+      val unit    = new CompilationUnit(new BatchSourceFile("<console>", code))
       val scanner = new syntaxAnalyzer.UnitParser(unit)
       val tss     = scanner.templateStatSeq(false)._2
 
@@ -252,10 +224,10 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
   def topLevel = topLevelBase ++ imported
   
   // the first tier of top level objects (doesn't include file completion)
-  def topLevelFor(parsed: Parsed) = topLevel flatMap (_ completionsFor parsed)
+  def topLevelFor(parsed: Parsed) = (topLevel flatMap (_ completionsFor parsed)) filterNot topLevelNever
 
   // the most recent result
-  def lastResult = Forwarder(() => ids follow repl.mostRecentVar)
+  def lastResult = Forwarder(() => ids follow (repl.latestVar map (_.toString) getOrElse ""))
 
   def lastResultFor(parsed: Parsed) = {
     /** The logic is a little tortured right now because normally '.' is
@@ -353,7 +325,9 @@ class Completion(val repl: Interpreter) extends CompletionOutput {
       }
       catch {
         case ex: Exception =>
-          DBG("Error: complete(%s, %s, _) provoked %s".format(_buf, cursor, ex))
+          if (isCompletionDebug || isReplDebug)
+            println("Error: complete(%s, %s, _) provoked %s".format(_buf, cursor, ex))
+            
           candidates add " "
           candidates add "<completion error>"
           cursor

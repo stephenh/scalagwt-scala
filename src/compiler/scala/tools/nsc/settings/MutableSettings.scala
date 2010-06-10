@@ -15,6 +15,7 @@ import scala.collection.mutable.ListBuffer
 /** A mutable Settings object.
  */
 class MutableSettings(val errorFn: String => Unit) extends AbsSettings with ScalaSettings with Mutable {  
+  def this() = this(Console.println)
   type ResultOfTryToSet = List[String]
 
   /** Iterates over the arguments applying them to settings where applicable.
@@ -65,11 +66,11 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
 
   /** Create a new Settings object, copying all user-set values.
    */
-  def copy(): Settings = {
-    val s = new Settings()
+  def copy(): Settings = copyInto(new Settings(errorFn))
+  def copyInto(target: Settings): Settings = {
     val xs = userSetSettings flatMap (_.unparse)
-    s.processArguments(xs.toList, true)
-    s
+    target.processArguments(xs.toList, true)
+    target
   }
 
   /** A list pairing source directories with their output directory.
@@ -83,43 +84,51 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
   /** Split the given line into parameters.
    */
   def splitParams(line: String) = cmd.Parser.tokenize(line, errorFn)
+  
+  // verify command exists and call setter
+  def tryToSetIfExists(
+    cmd: String,
+    args: List[String],
+    setter: (Setting) => (List[String] => Option[List[String]])
+  ): Option[List[String]] =
+    lookupSetting(cmd) match {
+      case None       => errorFn("Parameter '" + cmd + "' is not recognised by Scalac.") ; None          
+      case Some(cmd)  => setter(cmd)(args)
+    }
+  
+  // if arg is of form -Xfoo:bar,baz,quux
+  def parseColonArg(s: String): Option[List[String]] = {
+    val (p, args) = StringOps.splitWhere(s, _ == ':', true) getOrElse (return None)
+    
+    def colonSet(s: Setting): List[String] => Option[List[String]] = s match {
+      case colon: ColonSetting  => colon tryToSetColon _
+      case _                    => _ => None
+    }
+
+    // any non-Nil return value means failure and we return s unmodified
+    tryToSetIfExists(p, args split "," toList, colonSet _)
+  }
+  // if arg is of form -Dfoo=bar or -Dfoo (name = "-D")
+  def isPropertyArg(s: String) = lookupSetting(s take 2) match {
+    case Some(x: DefinesSetting)  => true
+    case _                        => false
+  }
+  def parsePropertyArg(s: String): Option[List[String]] = {
+    val (p, args) = (s take 2, s drop 2)
+
+    tryToSetIfExists(p, List(args), (s: Setting) => s.tryToSetProperty _)
+  }
+  // if arg is of form -Xfoo or -Xfoo bar (name = "-Xfoo")
+  def parseNormalArg(p: String, args: List[String]): Option[List[String]] =
+    tryToSetIfExists(p, args, (s: Setting) => s.tryToSet _)
+  
+  def parseUnknownArg(p: String, arg: String): Option[List[String]] = {
+    parseColonArg(p + ":" + arg) orElse parseNormalArg(p, List(arg))
+  }
 
   /** Returns any unprocessed arguments.
    */
   def parseParams(args: List[String]): List[String] = {
-    // verify command exists and call setter
-    def tryToSetIfExists(
-      cmd: String,
-      args: List[String],
-      setter: (Setting) => (List[String] => Option[List[String]])
-    ): Option[List[String]] =
-      lookupSetting(cmd) match {
-        case None       => errorFn("Parameter '" + cmd + "' is not recognised by Scalac.") ; None          
-        case Some(cmd)  => setter(cmd)(args)
-      }
-
-    // if arg is of form -Xfoo:bar,baz,quux
-    def parseColonArg(s: String): Option[List[String]] = {
-      val (p, args) = StringOps.splitWhere(s, _ == ':', true) getOrElse (return None)
-
-      // any non-Nil return value means failure and we return s unmodified
-      tryToSetIfExists(p, args split "," toList, (s: Setting) => s.tryToSetColon _)
-    }
-    // if arg is of form -Dfoo=bar or -Dfoo (name = "-D")
-    def isPropertyArg(s: String) = lookupSetting(s take 2) match {
-      case Some(x: DefinesSetting)  => true
-      case _                        => false
-    }
-    def parsePropertyArg(s: String): Option[List[String]] = {
-      val (p, args) = (s take 2, s drop 2)
-
-      tryToSetIfExists(p, List(args), (s: Setting) => s.tryToSetProperty _)
-    }
-
-    // if arg is of form -Xfoo or -Xfoo bar (name = "-Xfoo")
-    def parseNormalArg(p: String, args: List[String]): Option[List[String]] =
-      tryToSetIfExists(p, args, (s: Setting) => s.tryToSet _)
-
     def doArgs(args: List[String]): List[String] = {
       if (args.isEmpty) return Nil
       val arg :: rest = args
@@ -186,9 +195,10 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
 
   // basically this is a value which remembers if it's been modified
   trait SettingValue extends AbsSettingValue {
-    protected var v: T
+    protected var v: T = default
     protected var setByUser: Boolean = false
     def postSetHook(): Unit
+    def postUnsetHook(): Unit = ()
     
     def isDefault: Boolean = !setByUser
     def value: T = v
@@ -196,6 +206,11 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
       setByUser = true
       v = arg
       postSetHook()
+    }
+    def unsetValue(): Unit = {
+      setByUser = false
+      v = default
+      postUnsetHook()
     }
   }
 
@@ -329,17 +344,20 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
     override def dependencies = dependency.toList
     def dependsOn(s: Setting, value: String): this.type = { dependency = Some((s, value)); this }
   }
+  
+  def defaultIntParser(s: String): Option[Int] =
+    try   { Some(s.toInt) }
+    catch { case _: NumberFormatException => None }
 
   /** A setting represented by an integer */
   class IntSetting private[nsc](
     name: String,
     descr: String,
-    val default: Int,
+    override val default: Int,
     val range: Option[(Int, Int)],
     parser: String => Option[Int])
   extends Setting(name, descr) {
     type T = Int
-    protected var v = default
 
     // not stable values!
     val IntMin = Int.MinValue
@@ -367,12 +385,7 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
     // Ensure that the default value is actually valid
     assert(isInputValid(default))
 
-    def parseArgument(x: String): Option[Int] = {
-      parser(x) orElse {
-        try   { Some(x.toInt) }
-        catch { case _: NumberFormatException => None }
-      }
-    }
+    def parseArgument(x: String): Option[Int] = parser(x) orElse defaultIntParser(x)
 
     def errorMsg = errorFn("invalid setting for -"+name+" "+getValidText)
 
@@ -394,7 +407,7 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
     descr: String)
   extends Setting(name, descr) {
     type T = Boolean
-    protected var v = false
+    def default = false
 
     def tryToSet(args: List[String]) = { value = true ; Some(args) }
     def unparse: List[String] = if (value) List(name) else Nil
@@ -411,7 +424,6 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
     val default: String)
   extends Setting(name, descr) {
     type T = String
-    protected var v = default
 
     def tryToSet(args: List[String]) = args match {
       case Nil      => errorAndValue("missing argument", None)
@@ -459,9 +471,9 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
     name: String,
     val arg: String,
     descr: String)
-  extends Setting(name, descr) {
+  extends Setting(name, descr) with ColonSetting {
     type T = List[String]
-    protected var v: List[String] = Nil
+    def default = Nil
     def appendToValue(str: String) { value ++= List(str) }
 
     def tryToSet(args: List[String]) = {
@@ -484,10 +496,9 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
     name: String,
     descr: String,
     override val choices: List[String],
-    val default: String)
-  extends Setting(name, descr + choices.mkString(" (", ",", ")")) {
+    override val default: String)
+  extends Setting(name, descr + choices.mkString(" (", ",", ")")) with ColonSetting {
     type T = String
-    protected var v: String = default
     protected def argument: String = name drop 1
     def indexOfChoice: Int = choices indexOf value
 
@@ -513,9 +524,9 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
   class PhasesSetting private[nsc](
     name: String,
     descr: String)
-  extends Setting(name, descr + " <phase> or \"all\"") {
+  extends Setting(name, descr + " <phase> or \"all\"") with ColonSetting {
     type T = List[String]
-    protected var v: List[String] = Nil
+    def default = Nil
     override def value = if (v contains "all") List("all") else super.value
 
     def tryToSet(args: List[String]) = errorAndValue("missing phase", None)
@@ -537,7 +548,7 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
   /** A setting for a -D style property definition */
   class DefinesSetting private[nsc] extends Setting("-D", "set a Java property") {
     type T = List[(String, String)]
-    protected var v: T = Nil
+    def default = Nil
     withHelpSyntax(name + "<prop>")
 
     // given foo=bar returns Some(foo, bar), or None if parse fails
@@ -549,7 +560,7 @@ class MutableSettings(val errorFn: String => Unit) extends AbsSettings with Scal
       else Some(s take idx, s drop (idx + 1))
     }
 
-    protected[nsc] override def tryToSetProperty(args: List[String]): Option[List[String]] =
+    override def tryToSetProperty(args: List[String]): Option[List[String]] =
       tryToSet(args)
 
     def tryToSet(args: List[String]) =

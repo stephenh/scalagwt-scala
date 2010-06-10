@@ -55,6 +55,18 @@ trait AbsSettings {
     type T <: Any
     def value: T
     def isDefault: Boolean
+    def default: T
+  }
+  
+  trait ColonSetting {
+    self: AbsSetting =>
+
+    /** Commands which can take lists of arguments in form -Xfoo:bar,baz override
+     *  this method and accept them as a list.  It returns List[String] for
+     *  consistency with tryToSet, and should return its incoming arguments
+     *  unmodified on failure, and Nil on success.
+     */
+    def tryToSetColon(args: List[String]): Option[ResultOfTryToSet]
   }
 
   trait AbsSetting extends Ordered[Setting] with AbsSettingValue {    
@@ -91,19 +103,11 @@ trait AbsSettings {
      *  remainder of the command line.  It consumes any applicable arguments and
      *  returns the unconsumed ones.
      */
-    protected[nsc] def tryToSet(args: List[String]): Option[ResultOfTryToSet]
-
-    /** Commands which can take lists of arguments in form -Xfoo:bar,baz override
-     *  this method and accept them as a list.  It returns List[String] for
-     *  consistency with tryToSet, and should return its incoming arguments
-     *  unmodified on failure, and Nil on success.
-     */
-    protected[nsc] def tryToSetColon(args: List[String]): Option[ResultOfTryToSet] =
-      errorAndValue("'%s' does not accept multiple arguments" format name, None)
+    def tryToSet(args: List[String]): Option[ResultOfTryToSet]
 
     /** Commands which take properties in form -Dfoo=bar or -Dfoo
      */
-    protected[nsc] def tryToSetProperty(args: List[String]): Option[ResultOfTryToSet] =
+    def tryToSetProperty(args: List[String]): Option[ResultOfTryToSet] =
       errorAndValue("'%s' does not accept property style arguments" format name, None)
 
     /** Attempt to set from a properties file style property value.

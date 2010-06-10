@@ -4,7 +4,7 @@
  */
 
 package scala.tools.nsc
-package interpreter
+package repl
 
 import java.io.File
 import jline.{ ConsoleReader, History => JHistory }

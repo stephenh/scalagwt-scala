@@ -342,6 +342,8 @@ trait BasicBlocks {
         print()
         Console.println("trying to emit: " + instr)
       }
+      // This really works.
+      // global.breakIf(closed && !ignore, "block" -> this, "instr" -> instr, "pos" -> pos)
       assert(!closed || ignore, "BasicBlock closed")
 
       if (!ignore) {

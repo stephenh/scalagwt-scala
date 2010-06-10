@@ -13,7 +13,7 @@ import nsc.io._
 
 class PartestClassLoader(urls: Array[URL], parent: JavaClassLoader) extends ScalaClassLoader.URLClassLoader(urls, parent) {
   def this(urls: Array[URL])  = this(urls, null)
-  def bytes(path: String)     = findBytesForClassName(path)
+  def bytes(path: String)     = getBytesForClass(path)
   def singleton(path: String) = tryToInitializeClass(path).get getField "MODULE$" get null
 
   /** Calls a method in an object via reflection.

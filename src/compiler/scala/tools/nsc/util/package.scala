@@ -6,10 +6,17 @@
 package scala.tools.nsc
 
 import java.io.{ OutputStream, PrintStream, ByteArrayOutputStream, PrintWriter, StringWriter }
+import java.security.AccessControlException
 
 package object util {  
   /** Apply a function and return the passed value */
   def returning[T](x: T)(f: T => Unit): T = { f(x) ; x }
+
+  def ifPermitted[T](body: => T): Option[T] =
+    try   { Some(body) }
+    catch { case _: SecurityException | _: AccessControlException => None }
+    
+  def ifPermittedOr[T](zero: T)(body: => T): T = ifPermitted(body) getOrElse zero
   
   /** All living threads. */
   def allThreads(): List[Thread] = {
@@ -30,6 +37,18 @@ package object util {
     val newThreads = (ts2.toSet -- ts1) filterNot (_.isDaemon())
     
     newThreads foreach (_.join())
+    result
+  }
+  
+  /** Given function and block of code, evaluates code block,
+   *  calls function with milliseconds elapsed, and returns block result.
+   */
+  def timed[T](f: Long => Unit)(body: => T): T = {
+    val start = System.currentTimeMillis
+    val result = body
+    val end = System.currentTimeMillis
+    
+    f(end - start)
     result
   }
 

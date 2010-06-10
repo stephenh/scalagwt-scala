@@ -3,24 +3,22 @@
  * @author  Lex Spoon
  */
 
-
 package scala.tools.nsc
+package repl
 
 import java.io.IOException
-import java.lang.{ClassNotFoundException, NoSuchMethodException}
 import java.lang.reflect.InvocationTargetException
-import java.net.{ URL, MalformedURLException }
 import scala.tools.util.PathResolver
 
 import io.{ File, Process }
-import util.{ ClassPath, ScalaClassLoader, waitingForThreads }
+import util.{ ClassPath, waitingForThreads }
 import Properties.{ versionString, copyrightString }
 
 /** An object that runs Scala code.  It has three possible
   * sources for the code to run: pre-compiled code, a script file,
   * or interactive entry.
   */
-object MainGenericRunner {
+object Main {
   def main(args: Array[String]) {    
     def errorFn(str: String) = Console println str
     def exitSuccess: Nothing = exit(0)

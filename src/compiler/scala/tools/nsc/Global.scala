@@ -44,6 +44,18 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   def this(settings: Settings) =
     this(settings, new ConsoleReporter(settings))
   
+  // debug
+  
+  /** Break into repl debugger if assertion is true */
+  import repl.{ Debug, DebugParam, GlobalParam, SettingsParam }
+  def breakIf(assertion: => Boolean, args: DebugParam[_]*): Unit = {
+    def globalParam = GlobalParam(this)
+    def settingsParam = SettingsParam(settings)
+    
+    if (assertion)
+      Debug.break(globalParam :: settingsParam :: args.toList)
+  }
+  
   // platform specific elements
 
   type ThisPlatform = Platform[_] { val global: Global.this.type }

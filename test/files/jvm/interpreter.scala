@@ -170,14 +170,14 @@ def f(e: Exp) = e match {{  // non-exhaustive warning here
   }
 
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]) {    
     val input = new BufferedReader(new StringReader(testCodeString))
     val output = new PrintWriter(
       new Skip1Writer(new OutputStreamWriter(Console.out)))
-    val repl = new InterpreterLoop(input, output)
+    val repl = new InterpreterLoop(input, output) { override val isInteractive = false }
     val settings = new Settings
     // when running that compiler, give it a scala-library to the classpath
-    settings.classpath.value = System.getProperty("java.class.path")
+    settings.usejavacp.value = true
     repl.main(settings)
     println()
 

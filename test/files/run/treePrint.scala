@@ -30,7 +30,7 @@ object Test {
 
   def main(args: Array[String]) {
     val settings = new Settings
-    settings.classpath.value = System.getProperty("java.class.path")
+    settings.usejavacp.value = true
     settings.Ycompacttrees.value = true
 
     val repl = new Interpreter(settings, new PrintWriter(new NullOutputStream))

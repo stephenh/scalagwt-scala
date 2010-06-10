@@ -19,7 +19,7 @@ object Test {
   def main(args: Array[String]) = {
     
     val settings = new Settings()
-    settings.classpath.value = System.getProperty("java.class.path")
+    settings.usejavacp.value = true
     val tool = new Interpreter(settings)
     val global = tool.compiler
 

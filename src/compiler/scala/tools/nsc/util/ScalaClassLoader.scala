@@ -60,7 +60,7 @@ trait ScalaClassLoader extends JavaClassLoader {
   }
 
   /** The actual bytes for a class file, or an empty array if it can't be found. */
-  def findBytesForClassName(s: String): Array[Byte] = {
+  def getBytesForClass(s: String): Array[Byte] = {
     val name = s.replaceAll("""\.""", "/") + ".class"
     val url = this.getResource(name)
 

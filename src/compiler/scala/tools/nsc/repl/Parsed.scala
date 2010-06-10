@@ -4,7 +4,7 @@
  */
  
 package scala.tools.nsc
-package interpreter
+package repl
 
 import jline.ArgumentCompletor.{ ArgumentDelimiter, ArgumentList }
 import util.returning

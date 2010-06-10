@@ -29,6 +29,7 @@ abstract class GenJVM extends SubComponent {
   import global._
   import icodes._
   import icodes.opcodes._
+  import definitions.{ NothingClass, NullClass, RuntimeNothingClass, RuntimeNullClass }
 
   val phaseName = "jvm"
   
@@ -57,13 +58,27 @@ abstract class GenJVM extends SubComponent {
     }
   }
 
+  private def appendDollar(sym: Symbol) =
+    (sym hasFlag Flags.MODULE) && !sym.isMethod && !sym.isImplClass && !sym.isJavaDefined
+  
   /** Return the suffix of a class name */
-  def moduleSuffix(sym: Symbol) =
-    if (sym.hasFlag(Flags.MODULE) && !sym.isMethod &&
-       !sym.isImplClass && !sym.hasFlag(Flags.JAVA)) "$"
-    else "";
+  def moduleSuffix(sym: Symbol) = if (appendDollar(sym)) "$" else ""
 
-
+  def toJavaName(sym: Symbol): String = {
+    def suffix = moduleSuffix(sym)
+    
+    sym match {
+      case NothingClass     => toJavaName(RuntimeNothingClass)
+      case NullClass        => toJavaName(RuntimeNullClass)
+      case _                =>
+        if (definitions.isValueClass(sym))
+          toJavaName(definitions.getModule("scala.runtime." + sym.name))
+        else if (sym.isClass || (sym.isModule && !sym.isMethod))
+          sym.fullName('/') + suffix
+        else
+          sym.simpleName.toString.trim + suffix
+    }
+  }
   var pickledBytes = 0 // statistics
 
   /**

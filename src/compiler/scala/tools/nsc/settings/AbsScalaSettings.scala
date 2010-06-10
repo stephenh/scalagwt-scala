@@ -10,12 +10,12 @@ trait AbsScalaSettings {
   self: AbsSettings =>
   
   type BooleanSetting     <: AbsSetting { type T = Boolean }
-  type ChoiceSetting      <: AbsSetting { type T = String }
+  type ChoiceSetting      <: AbsSetting with ColonSetting { type T = String }
   type DefinesSetting     <: AbsSetting { type T = List[(String, String)] }
   type IntSetting         <: AbsSetting { type T = Int }
-  type MultiStringSetting <: AbsSetting { type T = List[String] }
+  type MultiStringSetting <: AbsSetting with ColonSetting { type T = List[String] }
   type PathSetting        <: AbsSetting { type T = String }
-  type PhasesSetting      <: AbsSetting { type T = List[String] }
+  type PhasesSetting      <: AbsSetting with ColonSetting { type T = List[String] }
   type StringSetting      <: AbsSetting { type T = String }
 
   type OutputDirs

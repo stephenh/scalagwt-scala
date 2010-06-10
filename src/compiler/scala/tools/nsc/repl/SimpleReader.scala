@@ -4,9 +4,8 @@
  */
 
 package scala.tools.nsc
-package interpreter
+package repl
 
-import java.io.{ BufferedReader, PrintWriter }
 import io.{ Path, File, Directory }
 
 /** Reads using standard JDK API */

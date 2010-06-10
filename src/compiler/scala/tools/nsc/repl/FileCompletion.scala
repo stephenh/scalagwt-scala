@@ -4,7 +4,7 @@
  */
  
 package scala.tools.nsc
-package interpreter
+package repl
 
 /** TODO
  *  Spaces, dots, and other things in filenames are not correctly handled.

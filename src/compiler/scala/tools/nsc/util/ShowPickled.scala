@@ -15,7 +15,7 @@ import java.lang.Double.longBitsToDouble
 import cmd.program.Simple
 import symtab.{ Flags, Names }
 import scala.reflect.generic.{ PickleBuffer, PickleFormat }
-import interpreter.ByteCode.scalaSigBytesForPath
+import repl.ByteCode.scalaSigBytesForPath
 
 object ShowPickled extends Names {
   import PickleFormat._

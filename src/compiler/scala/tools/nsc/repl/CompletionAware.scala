@@ -4,14 +4,15 @@
  */
  
 package scala.tools.nsc
-package interpreter
-
-import scala.reflect.NameTransformer
+package repl
 
 /** An interface for objects which are aware of tab completion and
  *  will supply their own candidates and resolve their own paths.
  */
 trait CompletionAware {
+  type ExecResult
+  private def toExec(x: Any): ExecResult = x.asInstanceOf[ExecResult]
+  
   /** The delimiters which are meaningful when this CompletionAware
    *  object is in control.
    */
@@ -44,7 +45,7 @@ trait CompletionAware {
    *  the line normally.  Returning Some(_) means the line will never
    *  reach the scala interpreter.
    */
-  def execute(id: String): Option[Any] = None
+  def execute(id: String): Option[ExecResult] = None
 
   /** A list of useful information regarding a specific uniquely
    *  identified completion.  This is specifically written for the
@@ -80,30 +81,23 @@ trait CompletionAware {
   
   /** TODO - unify this and completionsFor under a common traverser.
    */
-  def executionFor(parsed: Parsed): Option[Any] = {
+  def executionFor(parsed: Parsed): Option[ExecResult] = {
     import parsed._
     
     if (isUnqualified && !isLastDelimiter && (completions(verbosity) contains buffer)) execute(buffer)
     else if (!isQualified) None
-    else follow(bufferHead) flatMap (_ executionFor bufferTail)
+    else follow(bufferHead) flatMap (_ executionFor bufferTail) map toExec
   }
+}
+
+trait ExecCompletionAware[T] extends CompletionAware {
+  type ExecResult = T
+  // implicit def execManifest: Manifest[T]
 }
 
 object CompletionAware {
   val Empty = new CompletionAware { def completions(verbosity: Int) = Nil }
-  
-  // class Forwarder(underlying: CompletionAware) extends CompletionAware {
-  //   override def completions() = underlying.completions()
-  //   override def filterNotFunction(s: String) = underlying.filterNotFunction(s)
-  //   override def sortFunction(s1: String, s2: String) = underlying.sortFunction(s1, s2)
-  //   override def mapFunction(s: String) = underlying.mapFunction(s)
-  //   override def follow(id: String) = underlying.follow(id)
-  //   override def execute(id: String) = underlying.execute(id)
-  //   override def completionsFor(parsed: Parsed) = underlying.completionsFor(parsed)
-  //   override def executionFor(parsed: Parsed) = underlying.executionFor(parsed)
-  // } 
-  //
-  
+
   def unapply(that: Any): Option[CompletionAware] = that match {
     case x: CompletionAware => Some((x))
     case _                  => None
@@ -114,16 +108,16 @@ object CompletionAware {
    *  and the second should return Some(CompletionAware) object if
    *  subcompletions are possible.
    */
-  def apply(terms: () => List[String], followFunction: String => Option[CompletionAware]): CompletionAware =
+  def apply(terms: () => List[Any], followFunction: String => Option[CompletionAware]): CompletionAware =
     new CompletionAware {
-      def completions = terms()
+      def completions = terms() map (_.toString)
       def completions(verbosity: Int) = completions
       override def follow(id: String) = followFunction(id)
     }
 
   /** Convenience factories.
    */
-  def apply(terms: () => List[String]): CompletionAware = apply(terms, _ => None)
+  def apply(terms: () => List[Any]): CompletionAware = apply(terms, _ => None)
   def apply(map: collection.Map[String, CompletionAware]): CompletionAware =
     apply(() => map.keys.toList, map.get _)
 }

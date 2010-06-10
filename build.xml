@@ -755,7 +755,7 @@ QUICK BUILD (QUICK)
     <mkdir dir="${build-quick.dir}/bin"/>
     <quick-bin
       file="${build-quick.dir}/bin/scala"
-      class="scala.tools.nsc.MainGenericRunner"
+      class="scala.tools.nsc.repl.Main"
       javaFlags="${java.flags}"
       classpathref="quick.bin.classpath"/>
     <quick-bin
@@ -922,7 +922,7 @@ PACKED QUICK BUILD (PACK)
     <mkdir dir="${build-pack.dir}/bin"/>
     <pack-bin
       file="${build-pack.dir}/bin/scala"
-      class="scala.tools.nsc.MainGenericRunner"
+      class="scala.tools.nsc.repl.Main"
       javaFlags="${java.flags}"/>
     <pack-bin
       file="${build-pack.dir}/bin/scalac"

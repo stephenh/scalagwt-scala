@@ -4,8 +4,9 @@
  */
 
 package scala.tools.nsc
-package interpreter
-import scala.util.control.Exception._
+package repl
+
+import java.nio.channels.ClosedByInterruptException
 
 /** Reads lines from an input stream */
 trait InteractiveReader {
@@ -13,14 +14,14 @@ trait InteractiveReader {
   import java.io.IOException
   
   protected def readOneLine(prompt: String): String
-  val interactive: Boolean
+  def interactive: Boolean
   
-  def readLine(prompt: String): String = {
-    def handler: Catcher[String] = {
+  def readLine(prompt: String): String =
+    try readOneLine(prompt)
+    catch {
+      case e: ClosedByInterruptException          => println("Closed by interrupt!") ; System.exit(-1) ; error("")
       case e: IOException if restartSystemCall(e) => readLine(prompt)
     }
-    catching(handler) { readOneLine(prompt) }
-  }
   
   // override if history is available
   def history: Option[History] = None
@@ -34,10 +35,8 @@ trait InteractiveReader {
     Properties.isMac && (e.getMessage == msgEINTR)
 }
 
-
 object InteractiveReader {
   val msgEINTR = "Interrupted system call"
-  private val exes = List(classOf[Exception], classOf[NoClassDefFoundError])
   
   def createDefault(): InteractiveReader = createDefault(null)
   
@@ -46,10 +45,5 @@ object InteractiveReader {
    */
   def createDefault(interpreter: Interpreter): InteractiveReader =
     try new JLineReader(interpreter)
-    catch {
-      case e @ (_: Exception | _: NoClassDefFoundError) =>
-        // println("Failed to create JLineReader(%s): %s".format(interpreter, e))
-        new SimpleReader
-    }
+    catch { case _: Exception | _: NoClassDefFoundError => new SimpleReader }
 }
-

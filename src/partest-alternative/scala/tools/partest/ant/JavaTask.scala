@@ -20,7 +20,7 @@ import cmd.Spec._
 
 class JavaTask extends Java {
   override def getTaskName()      = "partest"
-  private val scalaRunnerClass    = "scala.tools.nsc.MainGenericRunner"  
+  private val scalaRunnerClass    = "scala.tools.nsc.repl.Main"  
   private val partestRunnerClass  = "scala.tools.partest.Runner"
   def defaultJvmArgs              = "-Xms64M -Xmx768M -Xss768K -XX:MaxPermSize=96M"
 

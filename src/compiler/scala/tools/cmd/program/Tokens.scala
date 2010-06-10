@@ -12,10 +12,49 @@ import util.Chars.char2uescape
 import io._
 import ast.parser.Tokens._
 
+trait GlobalTokenizer {
+  // Can be overridden for a reusable one.
+  def global: Global = new Global(new Settings())
+  
+  def fromScalaString(code: String): List[Any] = {
+    val f = File.makeTemp("tokens")
+    f writeAll code
+    fromScalaSource(f)
+  }
+  
+  /** Tokenizes a single scala file.
+   */
+  def fromScalaSource(file: Path): List[Any] = fromScalaSource(file.path)
+  def fromScalaSource(file: String): List[Any] = {
+    val g = global
+    import g._
+    import syntaxAnalyzer.{ UnitScanner, token2string }
+    
+    val in = new UnitScanner(new CompilationUnit(getSourceFile(file)))
+    in.init()
+
+    Iterator continually {
+      val token = in.token match {
+        case IDENTIFIER | BACKQUOTED_IDENT  => in.name
+        case CHARLIT | INTLIT | LONGLIT     => in.intVal
+        case DOUBLELIT | FLOATLIT           => in.floatVal
+        case STRINGLIT                      => "\"" + in.strVal + "\""
+        case SEMI | NEWLINE                 => ";"
+        case NEWLINES                       => ";;"
+        case COMMA                          => ","
+        case EOF                            => null
+        case x                              => token2string(x)
+      }
+      in.nextToken()
+      token
+    } takeWhile (_ != null) toList
+  }
+}
+
 /** Given paths on the command line, tokenizes any scala files found
  *  and prints one token per line.
  */
-object Tokens {
+object Tokens extends GlobalTokenizer {
   private val tokensUsage = "Usage: tokens [options] <path1 path2 ...>\n\nOptions:"
   private val tokensUnary = List(
     "verbose" -> "be more verbose",
@@ -68,33 +107,5 @@ object Tokens {
     def traverse = Path(arg) ifDirectory (_.deepList()) getOrElse Iterator(File(arg))
     
     Path onlyFiles traverse filter (_ hasExtension "scala") toList
-  }
-  
-  /** Tokenizes a single scala file.
-   */
-  def fromScalaSource(file: Path): List[Any] = fromScalaSource(file.path)
-  def fromScalaSource(file: String): List[Any] = {
-    val global = new Global(new Settings())
-    import global._
-    import syntaxAnalyzer.{ UnitScanner, token2string }
-    
-    val in = new UnitScanner(new CompilationUnit(getSourceFile(file)))
-    in.init()
-
-    Iterator continually {
-      val token = in.token match {
-        case IDENTIFIER | BACKQUOTED_IDENT  => in.name
-        case CHARLIT | INTLIT | LONGLIT     => in.intVal
-        case DOUBLELIT | FLOATLIT           => in.floatVal
-        case STRINGLIT                      => "\"" + in.strVal + "\""
-        case SEMI | NEWLINE                 => ";"
-        case NEWLINES                       => ";;"
-        case COMMA                          => ","
-        case EOF                            => null
-        case x                              => token2string(x)
-      }
-      in.nextToken()
-      token
-    } takeWhile (_ != null) toList
   }
 }
