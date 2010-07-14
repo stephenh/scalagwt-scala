@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -8,7 +8,8 @@
 
 package scala.tools.nsc.ast.parser
 
-import scala.tools.nsc.util.{ListBuffer, Position, OffsetPosition, NoPosition, BatchSourceFile}
+import scala.collection.mutable.ListBuffer
+import scala.tools.nsc.util.{Position, OffsetPosition, NoPosition, BatchSourceFile}
 import symtab.Flags
 import Tokens._
 
@@ -149,7 +150,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       t
     }
 
-/////////// PLACEHOLDERS ///////////////////////////////////////////////////////    
+/* -------- PLACEHOLDERS ------------------------------------------- */
 
     /** The implicit parameters introduced by `_' in the current expression.
      *  Parameters appear in reverse order 
@@ -199,7 +200,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       t
     }
 
-/////// ERROR HANDLING //////////////////////////////////////////////////////
+/* -------- ERROR HANDLING ------------------------------------------- */
 
     protected def skip() {
       var nparens = 0
@@ -325,7 +326,7 @@ trait Parsers extends NewScanners with MarkupParsers {
     def errorTermTree = Literal(Constant(null)).setPos((inCurrentPos))
     def errorPatternTree = Ident(nme.WILDCARD).setPos((inCurrentPos))
 
-/////// TOKEN CLASSES //////////////////////////////////////////////////////
+/* -------- TOKEN CLASSES ------------------------------------------- */
 
     def isModifier: Boolean = inToken match {
       case ABSTRACT | FINAL | SEALED | PRIVATE | PROTECTED | OVERRIDE | IMPLICIT | LAZY => true
@@ -373,7 +374,7 @@ trait Parsers extends NewScanners with MarkupParsers {
     def isStatSep: Boolean = isStatSep(inToken)
 
 
-/////// COMMENT AND ATTRIBUTE COLLECTION //////////////////////////////////////
+/* -------- COMMENT AND ATTRIBUTE COLLECTION ------------------------------------------- */
 
     /** Join the comment associated with a definition
     */
@@ -383,7 +384,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       else trees
     }
 
-/////// TREE CONSTRUCTION ////////////////////////////////////////////////////
+/* -------- TREE CONSTRUCTION ------------------------------------------- */
 
     /** Convert tree to formal parameter list
     */
@@ -447,7 +448,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       Function(List(makeSyntheticParam(pname)), insertParam(tree))
     }
 
-/////// OPERAND/OPERATOR STACK /////////////////////////////////////////////////
+/* -------- OPERAND/OPERATOR STACK ------------------------------------------- */
 
     var opstack: List[OpInfo] = Nil
 
@@ -498,7 +499,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       top
     }
 
-/////// IDENTIFIERS AND LITERALS ////////////////////////////////////////////////////////////
+/* -------- IDENTIFIERS AND LITERALS ------------------------------------------- */
 
 
     def ident(): Name =
@@ -658,7 +659,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       if (inToken == NEWLINE && p(inNextTokenCode)) newLineOpt()
     }
 
-//////// TYPES ///////////////////////////////////////////////////////////////
+/* -------- TYPES ------------------------------------------- */
 
     /** TypedOpt ::= [`:' Type]
     */
@@ -898,8 +899,8 @@ trait Parsers extends NewScanners with MarkupParsers {
       } else {
         typ()
       }
-    
-//////// EXPRESSIONS ////////////////////////////////////////////////////////
+
+/* -------- EXPRESSIONS ------------------------------------------- */    
 
     /** EqualsExpr ::= `=' Expr
      */
@@ -969,9 +970,8 @@ trait Parsers extends NewScanners with MarkupParsers {
           val cond = surround(LPAREN,RPAREN)(expr(),Literal(true))
           newLinesOpt()
           val thenp = expr()
-          val elsep =
-            if (inToken == ELSE) { inNextToken; expr() }
-            else EmptyTree
+          val elsep = if (inToken == ELSE) { inNextToken; expr() }
+		      else Literal(())
           atPos(pos) { If(cond, thenp, elsep) }
         case TRY =>
           atPos(inSkipToken) {
@@ -1056,7 +1056,9 @@ trait Parsers extends NewScanners with MarkupParsers {
               t = (t /: annotations(false)) (makeAnnotated)
             } else {
               t = atPos(pos) { 
-                val tpt = if (location != Local) compoundType(false) else typ()
+                val tpt = 
+                  if (location != Local) infixType(false, InfixMode.FirstOp) 
+                  else typ()
                 if (isWildcard(t))
                   (placeholderParams: @unchecked) match {
                     case (vd @ ValDef(mods, name, _, _)) :: rest => 
@@ -1314,7 +1316,7 @@ trait Parsers extends NewScanners with MarkupParsers {
     }
     //def p2i(pos : ScanPosition) : Int;
 
-//////// PATTERNS ////////////////////////////////////////////////////////////
+/* -------- PATTERNS ------------------------------------------- */    
 
     /**   Patterns ::= Pattern { `,' Pattern }  
      *    SeqPatterns ::= SeqPattern { `,' SeqPattern }  
@@ -1490,7 +1492,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       ps
     }
 
-////////// MODIFIERS and ANNOTATIONS /////////////////////////////////////////////////
+/* -------- MODIFIERS and ANNOTATIONS ------------------------------------------- */    
 
     private def normalize(mods: Modifiers): Modifiers = 
       if ((mods hasFlag Flags.PRIVATE) && mods.privateWithin != nme.EMPTY.toTypeName)
@@ -1626,7 +1628,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       Annotation(constr, nameValuePairs) setPos pos
     }
 
-//////// PARAMETERS //////////////////////////////////////////////////////////
+/* -------- PARAMETERS ------------------------------------------- */    
 
     /** ParamClauses      ::= {ParamClause} [[nl] `(' implicit Params `)']
      *  ParamClause       ::= [nl] `(' [Params] ')'
@@ -1703,6 +1705,9 @@ trait Parsers extends NewScanners with MarkupParsers {
       val vds = new ListBuffer[List[ValDef]]
       val pos = inCurrentPos
       newLineOptWhenFollowedBy(LPAREN)
+      if (ofCaseClass && inToken != LPAREN)
+        deprecationWarning(in.currentPos, "case classes without a parameter list have been deprecated;\n"+
+                           "use either case objects or case classes with `()' as parameter list.")
       while (implicitmod == 0 && inToken == LPAREN) {
         inNextToken
         vds += paramClause()
@@ -1801,7 +1806,7 @@ trait Parsers extends NewScanners with MarkupParsers {
       if (inToken == tok) { inNextToken; typ() } 
       else scalaDot(default.toTypeName)
 
-//////// DEFS ////////////////////////////////////////////////////////////////
+/* -------- DEFS ------------------------------------------- */    
 
 
     /** Import  ::= import ImportExpr {`,' ImportExpr}
@@ -1992,7 +1997,6 @@ trait Parsers extends NewScanners with MarkupParsers {
     /** VarDef ::= PatDef
      *           | Id {`,' Id} `:' Type `=' `_'
      *  VarDcl ::= Id {`,' Id} `:' Type
-     */
     def varDefOrDcl(mods: Modifiers): List[Tree] = {
       var newmods = mods | Flags.MUTABLE
       val lhs = new ListBuffer[(Int, Name)]
@@ -2021,6 +2025,7 @@ trait Parsers extends NewScanners with MarkupParsers {
         } else ValDef(newmods, name, tp.duplicate, rhs.duplicate)
       }
     }
+     */
 
     /** FunDef ::= FunSig `:' Type `=' Expr
      *           | FunSig [nl] `{' Block `}'
@@ -2029,8 +2034,8 @@ trait Parsers extends NewScanners with MarkupParsers {
      *  FunSig ::= id [FunTypeParamClause] ParamClauses
      */
     def funDefOrDcl(mods: Modifiers): Tree = {
-      var pos = inSkipToken
-      if (inToken == THIS) {
+      var pos = inSkipToken // position of `def' 
+      if (inToken == THIS) {  
         atPos(inCurrentPos) {
           inNextToken
           val vparamss = paramClauses(nme.CONSTRUCTOR, implicitClassViews map (_.duplicate), false)
@@ -2045,7 +2050,9 @@ trait Parsers extends NewScanners with MarkupParsers {
         val name = ident()
         if (name != nme.ERROR) pos = namePos
         atPos(pos) {
-          val implicitViewBuf = new ListBuffer[Tree]
+          // implicitViewBuf is for view bounded type parameters of the form
+          // [T <% B]; it contains the equivalent implicit parameter, i.e. (implicit p: T => B)
+          val implicitViewBuf = new ListBuffer[Tree]  
           val tparams = typeParamClauseOpt(name, implicitViewBuf)
           val vparamss = paramClauses(name, implicitViewBuf.toList, false)
           newLineOptWhenFollowedBy(LBRACE)
@@ -2133,7 +2140,7 @@ trait Parsers extends NewScanners with MarkupParsers {
     
     /**  TmplDef ::= [case] class ClassDef
      *            |  [case] object ObjectDef
-     *            |  trait TraitDef
+     *            |  [override] trait TraitDef
      */
     def tmplDef(mods: Modifiers): Tree = {
       if (mods.hasFlag(Flags.LAZY)) syntaxError("classes cannot be lazy", false)
@@ -2177,7 +2184,8 @@ trait Parsers extends NewScanners with MarkupParsers {
           if (mods.hasFlag(Flags.TRAIT)) (Modifiers(Flags.TRAIT), List())
           else (accessModifierOpt(), paramClauses(name, implicitClassViews, mods.hasFlag(Flags.CASE)))
         val thistpe = requiresTypeOpt()
-        var mods1 = if (inToken == SUBTYPE) mods | Flags.DEFERRED else mods
+        var mods1 = if (mods.hasFlag( Flags.TRAIT )) if (inToken == SUBTYPE) mods | Flags.DEFERRED else mods
+		    else if (inToken == SUBTYPE) { syntaxError("classes are not allowed to be virtual", false); mods } else mods
         var template = templateOpt(mods1, name, constrMods withAnnotations constrAnnots, vparamss)
         if (!thistpe.isEmpty) {
           if (template.self.isEmpty) {
@@ -2259,17 +2267,20 @@ trait Parsers extends NewScanners with MarkupParsers {
     def isInterface(mods: Modifiers, body: List[Tree]) =
       (mods.hasFlag(Flags.TRAIT) && (body forall treeInfo.isInterfaceMember))
 
-    /** ClassTemplateOpt ::= Extends ClassTemplate | [[Extends] TemplateBody] 
-     *  TraitTemplateOpt ::= Extends TraitTemplate | [[Extends] TemplateBody]
-     *  Extends          ::= extends | `<:'
+    /** ClassTemplateOpt ::= 'extends' ClassTemplate | [['extends'] TemplateBody] 
+     *  TraitTemplateOpt ::= TraitExtends TraitTemplate | [['extends'] TemplateBody] | '<:' TemplateBody
+     *  TraitExtends     ::= 'extends' | `<:'
      */
     def templateOpt(mods: Modifiers, name: Name, constrMods: Modifiers, vparamss: List[List[ValDef]]): Template = {
       val pos = inCurrentPos;
       val (parents0, argss, self, body) = 
-        if (inToken == EXTENDS || settings.Xexperimental.value && (mods hasFlag TRAIT) && inToken == SUBTYPE) {
+        if (inToken == EXTENDS || settings.Xexperimental.value && (mods hasFlag Flags.TRAIT) && inToken == SUBTYPE) {
           inNextToken
           template(mods hasFlag Flags.TRAIT)
-        } else {
+        } else if ((inToken == SUBTYPE) && (mods hasFlag Flags.TRAIT)) {
+	  inNextToken
+          template(true)
+	} else {
           newLineOptWhenFollowedBy(LBRACE)
           val (self, body) = templateBodyOpt(false)
           (List(), List(List()), self, body)
@@ -2287,8 +2298,8 @@ trait Parsers extends NewScanners with MarkupParsers {
       tree 
       // if (pos == inCurrentPos || inIDE) tree else atPos(pos) {tree}
     }
-    
-////////// TEMPLATES ////////////////////////////////////////////////////////////
+
+/* -------- TEMPLATES ------------------------------------------- */        
 
     /** TemplateBody ::= [nl] `{' TemplateStatSeq `}'
      * @param isPre specifies whether in early initializer (true) or not (false) 
@@ -2320,12 +2331,11 @@ trait Parsers extends NewScanners with MarkupParsers {
       body
     }
 
-/////// STATSEQS //////////////////////////////////////////////////////////////
+/* -------- STATSEQS ------------------------------------------- */        
 
     /** Packaging ::= package QualId [nl] `{' TopStatSeq `}'
      */
-    def packaging(): Tree = {
-      val pkgPos = accept(PACKAGE)
+    def packaging(pkgPos: Int): Tree = {
       val pkg = qualId()
       val pos = if (pkg.pos != NoPosition) pkg.pos else i2p(pkgPos)
       atPos(pos) {
@@ -2340,6 +2350,7 @@ trait Parsers extends NewScanners with MarkupParsers {
     /** TopStatSeq ::= TopStat {semi TopStat}
      *  TopStat ::= Annotations Modifiers TmplDef
      *            | Packaging
+     *            | package object objectDef
      *            | Import
      *            | 
      */
@@ -2347,7 +2358,12 @@ trait Parsers extends NewScanners with MarkupParsers {
       val stats = new ListBuffer[Tree]
       while (inToken != RBRACE && inToken != EOF) {
         if (inToken == PACKAGE) {
-          stats += packaging()
+	  val pkgPos = accept(PACKAGE)
+	  stats += {
+	    if (inToken == OBJECT)
+	      atPos(pkgPos) { makePackageObject(objectDef(NoMods)) }
+	    else packaging(pkgPos)
+	  }
         } else if (inToken == IMPORT) {
           stats ++= importClause()
           // XXX: IDE hook this all.
@@ -2436,7 +2452,20 @@ trait Parsers extends NewScanners with MarkupParsers {
       stats.toList
     }
 
-    /** overridable IDE hook for local definitions of blockStatSeq */
+    /** overridable IDE hook for local definitions of blockStatSeq 
+     *  Here's an idea how to fill in start and end positions.
+    def localDef : List[Tree] = {
+      atEndPos {
+        atStartPos(inCurrentPos) {
+          val annots = annotations(true)
+          val mods = localModifiers() withAnnotations annots
+          if (!(mods hasFlag ~(Flags.IMPLICIT | Flags.LAZY))) defOrDcl(mods)
+          else List(tmplDef(mods))
+        }
+      } (inCurrentPos)
+    }
+    */
+
     def localDef : List[Tree] = {
       val annots = annotations(true)
       val mods = localModifiers() withAnnotations annots
@@ -2481,7 +2510,7 @@ trait Parsers extends NewScanners with MarkupParsers {
 
     /** CompilationUnit ::= [package QualId semi] TopStatSeq 
      */
-    def compilationUnit(): Tree = {
+    def compilationUnit(): Tree = checkNoEscapingPlaceholders {
       var pos = inCurrentPos;
       {
         val ts = new ListBuffer[Tree]
@@ -2489,25 +2518,31 @@ trait Parsers extends NewScanners with MarkupParsers {
         // @S: just eat them (doesn't really change the grammar)
         while (inToken == SEMI) inNextToken
         if (inToken == PACKAGE) {
-          inNextToken
-          val pkg = qualId()
-          newLineOptWhenFollowedBy(LBRACE)
-          if (inToken == EOF) {
-            ts += makePackaging(pkg, List())
-          } else if (isStatSep) {
-            inNextToken
-            ts += makePackaging(pkg, topStatSeq())
-          } else {
-            accept(LBRACE)
-            ts += makePackaging(pkg, topStatSeq())
-            accept(RBRACE)
-            ts ++= topStatSeq()
-          }
+          pos = inSkipToken
+	  if (in.token == OBJECT) {
+	    ts += makePackageObject(objectDef(NoMods))
+	    if (inToken != EOF) {
+	      acceptStatSep()
+	      ts ++= topStatSeq()
+	    }
+	  } else {
+            val pkg = qualId()
+            newLineOptWhenFollowedBy(LBRACE)
+            if (inToken == EOF) {
+              ts += makePackaging(pkg, List())
+            } else if (isStatSep) {
+              inNextToken
+              ts += makePackaging(pkg, topStatSeq())
+            } else {
+              accept(LBRACE)
+              ts += makePackaging(pkg, topStatSeq())
+              accept(RBRACE)
+              ts ++= topStatSeq()
+            }
+	  }
         } else {
           ts ++= topStatSeq()
         }
-        assert(placeholderParams.isEmpty)
-        assert(placeholderTypes.isEmpty)
         val stats = ts.toList
         val usePos = if (stats.isEmpty || stats.head.pos == NoPosition) i2p(pos) else stats.head.pos
         atPos(usePos) { stats match {        

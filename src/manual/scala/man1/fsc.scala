@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Stephane Micheloud
  */
 //$Id$
@@ -75,28 +75,28 @@ object fsc extends Command {
       
       CodeSample(
       """> fsc -verbose -d /tmp test.scala
-        |...
+        |\&...
         |[Port number: 32834]
         |[Starting new Scala compile server instance]
         |[Classpath = ...]
         |[loaded directory path ... in 692ms]
-        |...
+        |\&...
         |[parsing test.scala]
-        |...
+        |\&...
         |[total in 943ms]
         |
         |> fsc -verbose -d /tmp test.scala
-        |...
+        |\&...
         |[Port number: 32834]
         |[parsing test.scala]
-        |...
+        |\&...
         |[total in 60ms]
         |
         |> fsc -verbose -d /tmp test.scala
-        |...
+        |\&...
         |[Port number: 32834]
         |[parsing test.scala]
-        |...
+        |\&...
         |[total in 42ms]
         |
         |> fsc -verbose -shutdown
@@ -142,8 +142,7 @@ object fsc extends Command {
     Link(Bold("sbaz") & "(1)", "sbaz.html") & ", " &
     Link(Bold("scala") & "(1)", "scala.html") & ", " &
     Link(Bold("scalac") & "(1)", "scalac.html") & ", " &
-    Link(Bold("scaladoc") & "(1)", "scaladoc.html") & ", " &
-    Link(Bold("scalap") & "(1)", "scalap.html"))
+    Link(Bold("scaladoc") & "(1)", "scaladoc.html"))
 
   def manpage = new Document {
     title = command

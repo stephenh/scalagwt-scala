@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2005-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2005-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -13,7 +13,7 @@ package scala.actors
  *
  *  Providing an implementation for the
  *  <code>execute(f: => Unit)</code> method is sufficient to
- *  obtain a concrete <code>IScheduler</code> class.
+ *  obtain a concrete class that extends <code>IScheduler</code>.
  *
  *  @version 0.9.18
  *  @author Philipp Haller
@@ -27,18 +27,16 @@ trait SchedulerAdapter extends IScheduler {
   def execute(task: Runnable): Unit =
     execute { task.run() }
 
-  /** Notifies the scheduler about activity of the
-   *  executing actor.
-   *
-   *  @param  a  the active actor
-   */
-  def tick(a: Actor): Unit =
-    Scheduler tick a
-
   /** Shuts down the scheduler.
    */
   def shutdown(): Unit =
     Scheduler.shutdown()
+
+  /** The <code>ActorGC</code> instance that keeps track of the
+   *  live actor objects that are managed by <code>this</code>
+   *  scheduler.
+   */
+  val actorGC: ActorGC = new ActorGC
 
   def onLockup(handler: () => Unit) {}
 

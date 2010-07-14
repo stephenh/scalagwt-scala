@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2006-2007 LAMP/EPFL
+ * Copyright 2006-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 
@@ -42,7 +42,7 @@ object ClassPath {
   /** Split path using platform-dependent path separator */
   def splitPath(path: String): List[String] = {
     val strtok = new StringTokenizer(path, File.pathSeparator)
-    val buf = new ListBuffer[String]
+    val buf = new collection.mutable.ListBuffer[String]
     while (strtok.hasMoreTokens()) {
       buf + strtok.nextToken()
     }
@@ -232,9 +232,12 @@ class ClassPath(onlyPresentation: Boolean) {
     }
 
     /**
-     *  @param path  ...
-     *  @param isDir ...
-     *  @return      ...
+     *  Lookup the given path in this classpath. Returns null if not found.
+     *  Does not work with absolute paths (starting with '/').
+     * 
+     *  @param path  Path to look up (if isDir is false, '.class' is appended!).
+     *  @param isDir Whether to look for a directory or a file
+     *  @return      The abstract file or null if path was not found
      */
     def lookupPath(path: String, isDir: Boolean): AbstractFile = {
       val ctx = root.find(path, isDir)

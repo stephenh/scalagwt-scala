@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -25,6 +25,7 @@ trait Analyzer extends AnyRef
     val global: Analyzer.this.global.type = Analyzer.this.global
     val phaseName = "namer"
     def newPhase(_prev: Phase): StdPhase = new StdPhase(_prev) {
+      override val checkable = false
       def apply(unit: CompilationUnit) {
         newNamer(rootContext(unit)).enterSym(unit.body)
       }
@@ -37,7 +38,12 @@ trait Analyzer extends AnyRef
     def newPhase(_prev: Phase): StdPhase = new StdPhase(_prev) {
       if (!inIDE) resetTyper()
       def apply(unit: CompilationUnit) {
-        unit.body = newTyper(rootContext(unit)).typed(unit.body)
+        try {
+          unit.body = newTyper(rootContext(unit)).typed(unit.body)
+          for (workItem <- unit.toCheck) workItem()
+        } finally {
+          unit.toCheck.clear()
+        }
       }
     }
   }

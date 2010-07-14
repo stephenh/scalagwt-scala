@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -197,6 +197,14 @@ trait Infer {
 
     /* -- Error Messages --------------------------------------------------- */
 
+    private var addendumPos: Position = NoPosition
+    private var addendum: () => String = _
+
+    def setAddendum(pos: Position, msg: () => String) = {
+      addendumPos = pos
+      addendum = msg
+    }
+
     def setError[T <: Tree](tree: T): T = {
       if (tree.hasSymbol)
         if (context.reportGeneralErrors) {
@@ -265,7 +273,10 @@ trait Infer {
 
     def typeError(pos: Position, found: Type, req: Type) {
       if (!found.isErroneous && !req.isErroneous) {
-        error(pos, typeErrorMsg(found, req))
+        error(pos, 
+              typeErrorMsg(found, req)+
+              (if (pos != NoPosition && pos == addendumPos) addendum()
+               else ""))
         if (settings.explaintypes.value) explainTypes(found, req)
       }
     }
@@ -299,7 +310,7 @@ trait Infer {
         explainName(sym1)
         explainName(sym2)
         if (sym1.owner == sym2.owner && !inIDE) sym2.name = newTypeName("(some other)"+sym2.name)
-        patches += (sym1, sym2, name)
+        patches += ((sym1, sym2, name))
       }
 
       val result = op
@@ -316,12 +327,6 @@ trait Infer {
 
     /** Check that <code>sym</code> is defined and accessible as a member of
      *  tree <code>site</code> with type <code>pre</code> in current context.
-     *
-     *  @param tree ...
-     *  @param sym  ...
-     *  @param pre  ...
-     *  @param site ...
-     *  @return     ...
      */
     def checkAccessible(tree: Tree, sym: Symbol, pre: Type, site: Tree): Tree =
       if (sym.isError) {
@@ -448,7 +453,16 @@ trait Infer {
       val tvars = tparams map freshVar
       if (isCompatible(restpe.instantiateTypeParams(tparams, tvars), pt)) {
         try {
-          solvedTypes(tvars, tparams, tparams map varianceInType(restpe), 
+          // If the restpe is an implicit method, and the expected type is fully defined
+          // optimze type varianbles wrt to the implicit formals only; ignore the result type.
+          // See test pos/jesper.scala 
+          val varianceType = restpe match {
+            case mt: ImplicitMethodType if isFullyDefined(pt) =>
+              MethodType(mt.paramTypes, AnyClass.tpe)
+            case _ =>
+              restpe
+          }
+          solvedTypes(tvars, tparams, tparams map varianceInType(varianceType), 
                       false, lubDepth(List(restpe, pt)))
         } catch {
           case ex: NoInstance => null
@@ -752,12 +766,12 @@ trait Infer {
       //@M TODO: errors for getters & setters are reported separately
       val kindErrors = checkKindBounds(tparams, targs, pre, owner)
            
-      if(!kindErrors.isEmpty)
+      if(!kindErrors.isEmpty) {
         error(pos, 
-          prefix + "the kinds of the type arguments " + targs.mkString("(", ",", ")") + 
+          prefix + "kinds of the type arguments " + targs.mkString("(", ",", ")") + 
           " do not conform to the expected kinds of the type parameters "+ tparams.mkString("(", ",", ")") + tparams.head.locationString+ "." +
           kindErrors.toList.mkString("\n", ", ", "")) 
-      else if (!isWithinBounds(pre, owner, tparams, targs)) { 
+      } else if (!isWithinBounds(pre, owner, tparams, targs)) { 
         if (!(targs exists (_.isErroneous)) && !(tparams exists (_.isErroneous))) {
           //val bounds = instantiatedBounds(pre, owner, tparams, targs)//DEBUG
           //println("bounds = "+bounds+", targs = "+targs+", targclasses = "+(targs map (_.getClass))+", parents = "+(targs map (_.parents)))
@@ -856,7 +870,7 @@ trait Infer {
       }
       
       val errors = new ListBuffer[String]
-      (tparams zip targs).foreach{ case (tparam, targ) if(targ.isHigherKinded || !tparam.typeParams.isEmpty) => //println("check: "+(tparam, targ))
+      (tparams zip targs).foreach{ case (tparam, targ) if (targ.isHigherKinded || !tparam.typeParams.isEmpty) => //println("check: "+(tparam, targ))
         val (arityMismatches, varianceMismatches, stricterBounds) = 
           checkKindBoundsHK(targ.typeParams, targ.typeSymbolDirect, tparam, tparam.owner) // NOTE: *not* targ.typeSymbol, which normalizes
             // NOTE 2: must use the typeParams of the type targ, not the typeParams of the symbol of targ!!
@@ -911,10 +925,12 @@ trait Infer {
      */
     def inferExprInstance(tree: Tree, undetparams: List[Symbol], pt: Type) {
       if (inferInfo)
-        println("infer expr instance "+tree+"\n"+
+        println("infer expr instance "+tree+":"+tree.tpe+"\n"+
                 "  undetparams = "+undetparams+"\n"+
                 "  pt = "+pt)
       substExpr(tree, undetparams, exprTypeArgs(undetparams, tree.tpe, pt), pt)
+      if (inferInfo)
+        println("inferred expr instance "+tree)
     }
 
     /** Substitite free type variables `undetparams' of polymorphic argument
@@ -1249,7 +1265,7 @@ trait Infer {
     }
 
     def checkDead(tree: Tree): Tree = {
-      if (settings.Xwarndeadcode.value && tree.tpe.typeSymbol == NothingClass)
+      if (settings.Xwarndeadcode.value && tree.tpe != null && tree.tpe.typeSymbol == NothingClass)
         context.warning (tree.pos, "dead code following this construct")
       tree
     }

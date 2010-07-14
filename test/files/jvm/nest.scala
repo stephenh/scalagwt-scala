@@ -14,4 +14,9 @@ object Test extends Application {
   val r = new nest.best.rest;
   Console.println(nest.best.rest.test.inc(2))
   Console.println(nest.best.rest.x)
+
+  print("Instantiating public inner class: ")
+  val outer = new nest
+  val inn   = new outer.Inn(42)
+  inn.doSomething
 }

@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -248,6 +248,7 @@ trait StdNames {
     val Nil = newTermName("Nil")
     val Object = newTermName("Object")
     val PartialFunction = newTermName("PartialFunction")
+    val PolyMethodCache = newTermName("PolyMethodCache")
     val Predef = newTermName("Predef")
     val Product = newTermName("Product")
     def Product_(i:Int) = newTermName("_" + i)
@@ -300,10 +301,12 @@ trait StdNames {
     val _equalsWithVarArgs = newTermName("_equalsWithVarArgs")
     val error = newTermName("error")
     val ex = newTermName("ex")
+    val add_ = newTermName("add")
     val fail = newTermName("fail")
     val false_ = newTermName("false")
     val filter = newTermName("filter")
     val finalize_ = newTermName("finalize")
+    val find_ = newTermName("find")
     val flatMap = newTermName("flatMap")
     val forName = newTermName(if (forMSIL) "GetType" else "forName")
     val foreach = newTermName("foreach")
@@ -354,6 +357,7 @@ trait StdNames {
     val tag = newTermName("$tag")
     val tail = newTermName("tail")
     val toList = newTermName("toList")
+    val toSeq = newTermName("toSeq")
     val toString_ = newTermName("toString")
     val clone_ = newTermName("clone")
     val that = newTermName("that")
@@ -370,6 +374,7 @@ trait StdNames {
     val value = newTermName("value")
     val view_ = newTermName("view")
     val wait_ = newTermName("wait")
+    val withDims = newTermName("withDims")
     val xml = newTermName("xml")
     val zip = newTermName("zip")
 
@@ -432,6 +437,7 @@ trait StdNames {
     val RuntimeAnnotationATTR = newTermName("RuntimeVisibleAnnotations")
     val ClassfileAnnotationATTR = newTermName("RuntimeInvisibleAnnotations")
     val RuntimeParamAnnotationATTR = newTermName("RuntimeVisibleParameterAnnotations")
+    val ScalaATTR = newTermName("Scala")
   }
 
   def encode(str: String): Name = newTermName(NameTransformer.encode(str))
@@ -453,6 +459,7 @@ trait StdNames {
     val BoxedNumber  : Name
     val BoxedCharacter : Name
     val BoxedBoolean : Name
+    val MethodAsObject : Name
 
     import scala.collection.mutable.HashMap
     val Boxed = new HashMap[Name, Name]
@@ -471,6 +478,7 @@ trait StdNames {
     final val BoxedNumber   = newTermName("java.lang.Number")
     final val BoxedCharacter = newTermName("java.lang.Character")
     final val BoxedBoolean = newTermName("java.lang.Boolean")
+    final val MethodAsObject = newTermName("java.lang.reflect.Method")
 
     Boxed += (nme.Boolean -> newTermName("java.lang.Boolean"))
     Boxed += (nme.Byte    -> newTermName("java.lang.Byte"))
@@ -498,6 +506,7 @@ trait StdNames {
     final val BoxedNumber   = newTermName("System.IConvertible")
     final val BoxedCharacter = newTermName("System.IConvertible")
     final val BoxedBoolean = newTermName("System.IConvertible")
+    final val MethodAsObject = nme.NOSYMBOL // TODO: is there something like Method in MSIL?
 
     Boxed += (nme.Boolean -> newTermName("System.Boolean"))
     Boxed += (nme.Byte    -> newTermName("System.Byte"))
@@ -519,6 +528,7 @@ trait StdNames {
     final val Serializable  = nme.NOSYMBOL
     final val BeanProperty  = nme.NOSYMBOL
     final val Code          = nme.NOSYMBOL
+    final val Method        = nme.NOSYMBOL
   }
 
   private var sn0 : SymbolNames = _

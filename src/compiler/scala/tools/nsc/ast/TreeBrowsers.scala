@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -138,7 +138,7 @@ abstract class TreeBrowsers {
     var splitPane: JSplitPane = _
     var treeModel: TreeModel = _
 
-    val textArea: JTextArea = new JTextArea(20, 50)
+    val textArea: JTextArea = new JTextArea(20, 150)
     val infoPanel = new TextInfoPanel()
 
     /** Create a frame that displays the AST.

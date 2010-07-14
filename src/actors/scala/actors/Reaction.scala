@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2005-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2005-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |                                         **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -85,14 +85,14 @@ class Reaction extends Runnable {
     catch {
       case eae: ExitActorException => {
         //Debug.info(a+": exiting...")
-        ActorGC.terminated(a)
+        a.terminated()
       }
       case _: SuspendActorException => {
         // do nothing (continuation is already saved)
       }
       case t: Throwable => {
         Debug.info(a+": caught "+t)
-        ActorGC.terminated(a)
+        a.terminated()
         // links
         a.synchronized {
           if (!a.links.isEmpty)

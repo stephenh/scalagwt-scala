@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 
@@ -314,7 +314,7 @@ trait Opcodes { self: ICodes =>
       override def consumed = {
         var result = method.tpe.paramTypes.length;
         result = result + (style match {
-          case Dynamic => 1
+          case Dynamic | InvokeDynamic => 1
           case Static(true) => 1
           case Static(false) => 0 
           case SuperCall(_) => 1
@@ -624,13 +624,18 @@ trait Opcodes { self: ICodes =>
       /** Returns a string representation of this style. */
       override def toString(): String = this match {
         case Dynamic =>  "dynamic"
+        case InvokeDynamic => "invoke-dynamic"
         case Static(false) => "static-class"
         case Static(true) =>  "static-instance"
         case SuperCall(mix) => "super(" + mix + ")"
       }
     }
 
+    /** Virtual calls */
     case object Dynamic extends InvokeStyle
+    
+    /** InvokeDynamic a la JSR 292 (experimental). */
+    case object InvokeDynamic extends InvokeStyle
     
     /** 
      * Special invoke. Static(true) is used for calls to private

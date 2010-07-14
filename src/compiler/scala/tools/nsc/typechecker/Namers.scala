@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -55,10 +55,9 @@ trait Namers { self: Analyzer =>
 
     def setPrivateWithin[Sym <: Symbol](tree: Tree, sym: Sym, mods: Modifiers): Sym = {
       if (!mods.privateWithin.isEmpty) 
-        sym.privateWithin = typer.qualifyingClassContext(tree, mods.privateWithin).owner
+        sym.privateWithin = typer.qualifyingClassContext(tree, mods.privateWithin, true).owner
       sym
     }
-
 
     def inConstructorFlag: Long = 
       if (context.owner.isConstructor && !context.inConstructorSuffix || context.owner.isEarly) INCONSTRUCTOR
@@ -182,13 +181,13 @@ trait Namers { self: Analyzer =>
     }
 
     def enterPackageSymbol(pos: Position, name: Name): Symbol = {
-      val cscope = if (context.owner == EmptyPackageClass) RootClass.info.decls
-                   else context.scope
+      val (cscope, cowner) = 
+        if (context.owner == EmptyPackageClass) (RootClass.info.decls, RootClass)
+        else (context.scope, context.owner)
       val p: Symbol = cscope.lookupWithContext(name)(context.owner)
       if (p.isPackage && cscope == p.owner.info.decls) {
         p
       } else { 
-        val cowner = if (context.owner == EmptyPackageClass) RootClass else context.owner
         val pkg = cowner.newPackage(pos, name)
         // IDE: newScope should be ok because packages are never destroyed.
         if (inIDE) assert(!pkg.moduleClass.hasRawInfo || !pkg.moduleClass.rawInfo.isComplete)
@@ -287,7 +286,7 @@ trait Namers { self: Analyzer =>
     def deSkolemize: TypeMap = new DeSkolemizeMap(applicableTypeParams(context.owner))
     // should be special path for IDE but maybe not....
 
-    def enterSym(tree: Tree): Context = {
+    def enterSym(tree: Tree): Context = try {
       
       def finishWith(tparams: List[TypeDef]) {
         val sym = tree.symbol
@@ -330,12 +329,16 @@ trait Namers { self: Analyzer =>
             finish
             
           case ValDef(mods, name, tp, rhs) =>
-            if (name.endsWith(nme.OUTER, nme.OUTER.length)) { // SM
+            if ((!context.owner.isClass ||
+                 (mods.flags & (PRIVATE | LOCAL)) == (PRIVATE | LOCAL) ||
+                 name.endsWith(nme.OUTER, nme.OUTER.length) ||
+                 context.unit.isJava) && 
+                (mods.flags & LAZY) == 0) {
               tree.symbol = enterInScope(owner.newValue(tree.pos, name)
                 .setFlag(mods.flags))
               finish
-            } else if (context.owner.isClass && (mods.flags & (PRIVATE | LOCAL)) != (PRIVATE | LOCAL)
-                       || (mods.flags & LAZY) != 0) {
+            } else {
+              // add getter and possibly also setter
               val accflags: Long = ACCESSOR |
                 (if ((mods.flags & MUTABLE) != 0) mods.flags & ~MUTABLE & ~PRESUPER 
                  else mods.flags & ~PRESUPER | STABLE)
@@ -367,11 +370,7 @@ trait Namers { self: Analyzer =>
                   if ((mods.flags & LAZY) != 0)
                     vsym.setLazyAccessor(getter)
                   vsym
-                } else getter;
-            } else {
-              tree.symbol = enterInScope(owner.newValue(tree.pos, name)
-                .setFlag(mods.flags))
-              finish
+                } else getter
             }
           case DefDef(mods, nme.CONSTRUCTOR, tparams, _, _, _) =>
             var sym = owner.newConstructor(tree.pos).setFlag(mods.flags | owner.getFlag(ConstrFlags))
@@ -400,6 +399,11 @@ trait Namers { self: Analyzer =>
         }
       }
       this.context
+    } catch {
+      case ex: TypeError =>
+        //Console.println("caught " + ex + " in enterSym")//DEBUG
+        typer.reportTypeError(tree.pos, ex)
+        this.context
     }
 
     def enterSyntheticSym(tree: Tree): Symbol = {
@@ -935,6 +939,7 @@ trait Namers { self: Analyzer =>
               Flags.flagsToString(flag1) + " and " + Flags.flagsToString(flag2) +
               " for: " + sym + Flags.flagsToString(sym.rawflags));
       }
+
       if (sym.hasFlag(IMPLICIT) && !sym.isTerm)
         context.error(sym.pos, "`implicit' modifier can be used only for values, variables and methods")
       if (sym.hasFlag(IMPLICIT) && sym.owner.isPackageClass && !inIDE)
@@ -942,7 +947,7 @@ trait Namers { self: Analyzer =>
       if (sym.hasFlag(ABSTRACT) && !sym.isClass)
         context.error(sym.pos, "`abstract' modifier can be used only for classes; " + 
           "\nit should be omitted for abstract members")
-      if (sym.hasFlag(OVERRIDE | ABSOVERRIDE) && sym.isClass)
+      if (sym.hasFlag(OVERRIDE | ABSOVERRIDE) && !sym.hasFlag(TRAIT) && sym.isClass)
         context.error(sym.pos, "`override' modifier not allowed for classes")
       if (sym.hasFlag(OVERRIDE | ABSOVERRIDE) && sym.isConstructor)
         context.error(sym.pos, "`override' modifier not allowed for constructors")
@@ -964,11 +969,12 @@ trait Namers { self: Analyzer =>
             sym.resetFlag(DEFERRED)
         } 
       }
+
       checkNoConflict(DEFERRED, PRIVATE)
       checkNoConflict(FINAL, SEALED)
       checkNoConflict(PRIVATE, PROTECTED)
       checkNoConflict(PRIVATE, OVERRIDE)
-      //checkNoConflict(PRIVATE, FINAL) // can't do this because FINAL also means compile-time constant
+      /* checkNoConflict(PRIVATE, FINAL) // can't do this because FINAL also means compile-time constant */
       checkNoConflict(DEFERRED, FINAL)
     }
   } 

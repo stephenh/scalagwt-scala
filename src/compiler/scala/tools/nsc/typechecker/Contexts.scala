@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -157,7 +157,7 @@ trait Contexts { self: Analyzer =>
         assert(inIDE)
         def eq[T](x : T, y : T) = x == y
         val a0 = {
-          if (tree ne null) tree.setType(null)
+          if ((tree ne null) && (tree ne EmptyTree)) tree.setType(null)
           if ((tree eq null) || (that.tree eq null)) tree == that.tree else 
             tree equalsStructure that.tree;
         } 
@@ -346,7 +346,7 @@ trait Contexts { self: Analyzer =>
     }
 
     def error(pos: Position, msg: String) {
-      if (reportGeneralErrors || inIDE)
+      if (reportGeneralErrors)
         unit.error(pos, if (checking) "**** ERROR DURING INTERNAL CHECKING ****\n" + msg else msg)
       else
         throw new TypeError(pos, msg)
@@ -355,7 +355,7 @@ trait Contexts { self: Analyzer =>
     def warning(pos:  Position, msg: String) {
       if (reportGeneralErrors) unit.warning(pos, msg)
     }
-
+ 
     /**
      *  @param pos  ...
      *  @param pre  ...
@@ -583,6 +583,7 @@ trait Contexts { self: Analyzer =>
     /** The prefix expression */
     def qual: Tree = tree.symbol.info match {
       case ImportType(expr) => expr
+      case ErrorType => tree
       case _ => throw new FatalError("symbol " + tree.symbol + " has bad type: " + tree.symbol.info);//debug
     }
 

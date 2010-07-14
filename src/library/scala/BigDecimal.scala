@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2007-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2007-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -18,6 +18,7 @@ import java.math.{BigDecimal => BigDec}
  */
 object BigDecimal {
 
+  @serializable
   object RoundingMode extends Enumeration {
     type RoundingMode = Value
     val ROUND_UP, ROUND_DOWN, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP,
@@ -85,10 +86,10 @@ object BigDecimal {
   /** Implicit conversion from <code>Int</code> to <code>BigDecimal</code>. */
   implicit def int2bigDecimal(i: Int): BigDecimal = apply(i)
 
-  /** Implicit copnversion from <code>Long</code> to <code>BigDecimal</code>. */
+  /** Implicit conversion from <code>Long</code> to <code>BigDecimal</code>. */
   implicit def long2bigDecimal(l: Long): BigDecimal = apply(l)
 
-  /** Implicit copnversion from <code>Double</code> to <code>BigDecimal</code>. */
+  /** Implicit conversion from <code>Double</code> to <code>BigDecimal</code>. */
   implicit def double2bigDecimal(d: Double): BigDecimal = apply(d)
 
   /** Implicit conversion from BigDecimal to <code>Ordered</code>. */
@@ -112,7 +113,7 @@ class BigDecimal(val bigDecimal: BigDec) extends java.lang.Number {
 
   /** Compares this BigDecimal with the specified value for equality.
    */
-  override def equals (that: Any): Boolean = that match {
+  override def equals(that: Any): Boolean = that match {
     case that: BigDecimal => this equals that
     case that: java.lang.Double => this.bigDecimal.doubleValue == that.doubleValue
     case that: java.lang.Float  => this.bigDecimal.floatValue == that.floatValue
@@ -164,7 +165,7 @@ class BigDecimal(val bigDecimal: BigDec) extends java.lang.Number {
   /** Division of BigDecimals
    */
   def /  (that: BigDecimal): BigDecimal =
-   new BigDecimal(this.bigDecimal.divide(that.bigDecimal))
+    new BigDecimal(this.bigDecimal.divide(that.bigDecimal))
 
   /** Returns the minimum of this and that
    */

@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2002-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -34,14 +34,15 @@ import scala.collection.mutable.{Map, HashMap}
  *  </p><pre>
  *  <b>object</b> Main <b>extends</b> Application {
  *
- *    <b>object</b> WeekDays <b>extends</b> Enumeration {
+ *    <b>object</b> WeekDay <b>extends</b> Enumeration {
+ *      <b>type</b> WeekDay</b> = Value
  *      <b>val</b> Mon, Tue, Wed, Thu, Fri, Sat, Sun = Value
  *    }
+ *    <b>import</b> WeekDay._
  *
- *    <b>def</b> isWorkingDay(d: WeekDays.Value) =
- *      ! (d == WeekDays.Sat || d == WeekDays.Sun)
+ *    <b>def</b> isWorkingDay(d: WeekDay) = ! (d == Sat || d == Sun)
  * 
- *    WeekDays filter (isWorkingDay) foreach { d =&gt; Console.println(d) }
+ *    WeekDay filter isWorkingDay foreach println
  *  }</pre>
  *
  *  @param initial The initial value from which to count the integers that
@@ -49,8 +50,10 @@ import scala.collection.mutable.{Map, HashMap}
  *  @param names   The sequence of names to give to this enumeration's values.
  *
  *  @author  Matthias Zenger
- *  @version 1.0, 10/02/04
+ *  @version 1.0, 10/02/2004
  */
+@serializable
+@SerialVersionUID(8476000850333817230L)
 abstract class Enumeration(initial: Int, names: String*) {
     
   def this() = this(0, null)
@@ -60,9 +63,9 @@ abstract class Enumeration(initial: Int, names: String*) {
   /** The name of this enumeration.  */
   def name = {
     val cname = this.getClass().getName()
-    if (cname.endsWith("$"))
+    if (cname endsWith "$")
       cname.substring(0, cname.length() - 1)
-    else if (cname.endsWith("$class"))
+    else if (cname endsWith "$class")
       cname.substring(0, cname.length() - 6)
     else
       cname
@@ -73,11 +76,11 @@ abstract class Enumeration(initial: Int, names: String*) {
   private val values: Map[Int, Value] = new HashMap
   
   /** The cache listing all values of this enumeration. */
-  private var vcache: List[Value] = null
+  @transient private var vcache: List[Value] = null
   
   private def updateCache: List[Value] =
     if (vcache eq null) {
-      vcache = values.values.toList.sort((p1, p2) => p1.id < p2.id);
+      vcache = values.values.toList.sort(_.id < _.id);
       vcache
     } else
       vcache;
@@ -115,17 +118,32 @@ abstract class Enumeration(initial: Int, names: String*) {
   
   /** Returns an iterator resulting from applying the given function f to each
     * value of this enumeration. */
-  def map[b](f: Value => b): Iterator[b] = elements map f
+  def map[B](f: Value => B): Iterator[B] = elements map f
   
   /** Applies the given function f to each value of this enumeration, then
     * concatenates the results. */
-  def flatMap[b](f: Value => Iterator[b]): Iterator[b] = elements flatMap f
+  def flatMap[B](f: Value => Iterator[B]): Iterator[B] = elements flatMap f
     
   /** Returns all values of this enumeration that satisfy the predicate p.
     * The order of values is preserved. */
   def filter(p: Value => Boolean): Iterator[Value] = elements filter p
     
   override def toString(): String = updateCache.mkString("{", ", ", "}")
+
+  /** Returns a Value from this Enumeration whose name matches 
+   * the argument <var>s</var>.
+   * You must pass a String* set of names to the constructor,
+   * or initialize each Enumeration with Value(String),
+   * for valueOf to work.
+   * @param s an enumeration name
+   * @return <tt>Some(Value)</tt> if an enumeration's name matches <var>s</var>, 
+   * else <tt>None</tt>
+   */
+  def valueOf(s:String) = {
+    var v: Option[Value] = None
+    for( e <- elements ) if (s == e.toString()) v = Some(e)
+    v
+  }
 
   /** Creates a fresh value, part of this enumeration. */
   protected final def Value: Value =
@@ -158,14 +176,18 @@ abstract class Enumeration(initial: Int, names: String*) {
   protected final def Value(i: Int, name: String): Value = new Val(i, name)
   
   /** The type of the enumerated values. */
+  @serializable
+  @SerialVersionUID(7091335633555234129L)
   abstract class Value extends Ordered[Value] {
     /** the id and bit location of this enumeration value */
     def id: Int
     override def compare(that: Value): Int = this.id - that.id
-    override def equals(other : Any) : Boolean = 
-      other match { case that : Value => compare(that) == 0
-                    case _ => false } 
-    override def hashCode : Int = id.hashCode
+    override def equals(other: Any): Boolean = 
+      other match {
+        case that: Value => compare(that) == 0
+        case _ => false
+      } 
+    override def hashCode: Int = id.hashCode
     /** this enumeration value as an <code>Int</code> bit mask.
      *  @throws IllegalArgumentException if <code>id</code> is greater than 31
      */
@@ -187,6 +209,8 @@ abstract class Enumeration(initial: Int, names: String*) {
    *  overriden to change the enumeration's naming and integer identification
    *  behaviour.
    */
+  @serializable
+  @SerialVersionUID(0 - 3501153230598116017L)
   protected class Val(i: Int, name: String) extends Value {
     def this(i: Int) =
       this(i, if (nextName.hasNext) nextName.next else i.toString())
@@ -196,12 +220,14 @@ abstract class Enumeration(initial: Int, names: String*) {
     assert(!values.isDefinedAt(i))
     values(i) = this
     nextId = i + 1
-    if (nextId > topId)
-      topId = nextId
+    if (nextId > topId) topId = nextId
     def id = i
     override def toString() =
       if (name eq null) Enumeration.this.name + "(" + i + ")"
       else name
+    private def readResolve(): AnyRef =
+      if (values ne null) values(i)
+      else this
   }
   
   /** A set that efficiently stores enumeration values as bits.
@@ -297,7 +323,7 @@ abstract class Enumeration(initial: Int, names: String*) {
   /** An enumeration bit set that can handle enumeration values with ids up
    *  to 31 in an <code>Int</code>.
    */
-  class Set32(val underlying : Int) extends SetXX {
+  class Set32(val underlying: Int) extends SetXX {
     def this() = this(0)
     type Underlying = Int
     type TSet = Set32
@@ -309,38 +335,38 @@ abstract class Enumeration(initial: Int, names: String*) {
         underlying0.toLong | (1L << 31)
       }
     }
-    def contains(value : Value) = (underlying & value.mask32) != 0
-    def |(set : Set32) = new Set32(underlying | set.underlying)
-    def |(value : Value) = new Set32(underlying | value.mask32)
-    def &~(value : Value) = new Set32(underlying & (~value.mask32))
-    def &(set : Set32) = new Set32(underlying & set.underlying)
+    def contains(value: Value) = (underlying & value.mask32) != 0
+    def |(set: Set32) = new Set32(underlying | set.underlying)
+    def |(value: Value) = new Set32(underlying | value.mask32)
+    def &~(value: Value) = new Set32(underlying & (~value.mask32))
+    def &(set: Set32) = new Set32(underlying & set.underlying)
   }
 
   /** create an empty 32 bit enumeration set */
   def Set32 = new Set32
 
-  /** create a bit enumeration set according ot underlying */
-  def Set32(underlying : Int) = new Set32(underlying)
+  /** create a bit enumeration set according to underlying */
+  def Set32(underlying: Int) = new Set32(underlying)
 
   /** An enumeration bit set that can handle enumeration values with ids up
    *  to 63 in a <code>Long</code>.
    */
-  class Set64(val underlying : Long) extends SetXX {
+  class Set64(val underlying: Long) extends SetXX {
     def this() = this(0)
     type Underlying = Long
     type TSet = Set64
     def underlyingAsLong = underlying
-    def contains(value : Value) = (underlying & value.mask64) != 0
-    def |(  set :   Set64) = new Set64(underlying |   set.underlying)
-    def |(value : Value) = new Set64(underlying | value.mask64)
-    def &~(value : Value) = new Set64(underlying & (~value.mask64))
-    def &(set : Set64) = new Set64(underlying & set.underlying)
+    def contains(value: Value) = (underlying & value.mask64) != 0
+    def |(set: Set64) = new Set64(underlying | set.underlying)
+    def |(value: Value) = new Set64(underlying | value.mask64)
+    def &~(value: Value) = new Set64(underlying & (~value.mask64))
+    def &(set: Set64) = new Set64(underlying & set.underlying)
   }
 
   /** create an empty 64 bit enumeration set */
   def Set64 = new Set64
 
-  /** create a bit enumeration set according ot underlying */
+  /** create a bit enumeration set according to underlying */
   def Set64(underlying: Long) = new Set64(underlying)
 
   /** used to reverse engineer bit locations from pre-defined bit masks */

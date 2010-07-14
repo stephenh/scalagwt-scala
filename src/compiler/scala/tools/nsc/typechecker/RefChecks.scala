@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -10,6 +10,7 @@ import symtab.Flags._
 import collection.mutable.{HashSet, HashMap}
 import transform.InfoTransform
 import scala.tools.nsc.util.{Position, NoPosition}
+import scala.collection.mutable.ListBuffer
 
 /** <p>
  *    Post-attribution checking and transformation.
@@ -72,7 +73,7 @@ abstract class RefChecks extends InfoTransform {
      *    1.1. M must have the same or stronger access privileges as O.
      *    1.2. O must not be final.
      *    1.3. O is deferred, or M has `override' modifier.
-     *    1.4. If O is an immutable value, then so is M.
+     *    1.4. If O is stable, then so is M.
      *     // @M: LIFTED 1.5. Neither M nor O are a parameterized type alias
      *    1.6. If O is a type alias, then M is an alias of O. 
      *    1.7. If O is an abstract type then 
@@ -91,6 +92,21 @@ abstract class RefChecks extends InfoTransform {
      *     overrides some other member.
      */
     private def checkAllOverrides(clazz: Symbol) {
+
+      case class MixinOverrideError(member: Symbol, msg: String)
+
+      var mixinOverrideErrors = new ListBuffer[MixinOverrideError]()
+
+      def printMixinOverrideErrors() {
+        mixinOverrideErrors.toList match {
+          case List() => 
+          case List(MixinOverrideError(_, msg)) =>
+            unit.error(clazz.pos, msg)
+          case MixinOverrideError(member, msg) :: others =>
+            unit.error(clazz.pos, msg+";\n other members with override errors are: "+
+                       (others.map(_.member.name).filter(member.name != _).removeDuplicates mkString ", "))
+        }
+      }
 
       val self = clazz.thisType
  
@@ -130,23 +146,24 @@ abstract class RefChecks extends InfoTransform {
        *  <code>member</code> are met.
        */
       def checkOverride(clazz: Symbol, member: Symbol, other: Symbol) {
-        val pos = if (member.owner == clazz) member.pos else clazz.pos
 
         def overrideError(msg: String) {
-          if (other.tpe != ErrorType && member.tpe != ErrorType)
-            unit.error(pos, "error overriding " + infoStringWithLocation(other) + 
-                       ";\n " + infoString(member) + " " + msg +
-                       (if ((other.owner isSubClass member.owner) && 
-                            other.isDeferred && !member.isDeferred) 
-                          ";\n (Note that "+infoStringWithLocation(other)+" is abstract,"+
-                          "\n  and is therefore overridden by concrete "+
-                          infoStringWithLocation(member)+")"
-                        else ""))
+          if (other.tpe != ErrorType && member.tpe != ErrorType) {
+            val fullmsg = 
+              "overriding "+infoStringWithLocation(other)+";\n "+
+              infoString(member)+" "+msg+
+              (if ((other.owner isSubClass member.owner) && other.isDeferred && !member.isDeferred) 
+                ";\n (Note that "+infoStringWithLocation(other)+" is abstract,"+
+               "\n  and is therefore overridden by concrete "+infoStringWithLocation(member)+")"
+               else "")
+            if (member.owner == clazz) unit.error(member.pos, fullmsg)
+            else mixinOverrideErrors += new MixinOverrideError(member, fullmsg)
+          }
         }
 
         def overrideTypeError() {
           if (other.tpe != ErrorType && member.tpe != ErrorType) {
-            overrideError("has incompatible type "+analyzer.underlying(member).tpe.normalize)
+            overrideError("has incompatible type")
           }
         }
 
@@ -198,7 +215,7 @@ abstract class RefChecks extends InfoTransform {
                    (other hasFlag ACCESSOR) && other.accessed.isVariable && !other.accessed.hasFlag(LAZY)) {
           overrideError("cannot override a mutable variable")
         } else if (other.isStable && !member.isStable) { // (1.4)
-          overrideError("needs to be an immutable value")
+          overrideError("needs to be a stable, immutable value")
         } else if (member.isValue && (member hasFlag LAZY) &&
                    other.isValue && !other.isSourceMethod && !other.isDeferred && !(other hasFlag LAZY)) {
           overrideError("cannot override a concrete non-lazy value")
@@ -218,9 +235,10 @@ abstract class RefChecks extends InfoTransform {
             //if (!member.typeParams.isEmpty) // (1.7)  @MAT
             //  overrideError("may not be parameterized");
             var memberTp = self.memberType(member)
-
-            if (!(self.memberInfo(other).bounds containsType memberTp)) { // (1.7.1) {
+            val otherTp = self.memberInfo(other)
+            if (!(otherTp.bounds containsType memberTp)) { // (1.7.1)
               overrideTypeError(); // todo: do an explaintypes with bounds here
+              explainTypes(_.bounds containsType _, otherTp, memberTp)
             }
             
             // check overriding (abstract type --> abstract type or abstract type --> concrete type member (a type alias))
@@ -260,6 +278,8 @@ abstract class RefChecks extends InfoTransform {
         
         opc.next
       }
+      printMixinOverrideErrors() 
+
       // 2. Check that only abstract classes have deferred members
       if (clazz.isClass && !clazz.isTrait) {
         def abstractClassError(mustBeMixin: Boolean, msg: String) {
@@ -371,6 +391,8 @@ abstract class RefChecks extends InfoTransform {
             unit.error(clazz.pos, "illegal inheritance;\n " + clazz + 
                        " inherits different type instances of " + baseClass + 
                        ":\n" + tp1 + " and " + tp2);
+            explainTypes(tp1, tp2)
+            explainTypes(tp2, tp1)
         }
       }
     }
@@ -427,10 +449,14 @@ abstract class RefChecks extends InfoTransform {
               val v = relativeVariance(sym);
               if (v != AnyVariance && sym.variance != v * variance) {
                 //Console.println("relativeVariance(" + base + "," + sym + ") = " + v);//DEBUG
+                def tpString(tp: Type) = tp match {
+                  case ClassInfoType(parents, _, clazz) => "supertype "+intersectionType(parents, clazz.owner)
+                  case _ => "type "+tp
+                }
                 unit.error(base.pos,
                            varianceString(sym.variance) + " " + sym + 
                            " occurs in " + varianceString(v * variance) + 
-                           " position in type " + base.info + " of " + base);
+                           " position in " + tpString(base.info) + " of " + base);
               }
             }
             validateVariance(pre, variance)
@@ -452,8 +478,9 @@ abstract class RefChecks extends InfoTransform {
           case ExistentialType(tparams, result) =>
             validateVariances(tparams map (_.info), variance)
             validateVariance(result, variance)
-          case AnnotatedType(attribs, tp, selfsym) =>
-            validateVariance(tp, variance)
+          case AnnotatedType(annots, tp, selfsym) =>
+            if (!(annots exists (_.atp.typeSymbol.isNonBottomSubClass(uncheckedVarianceClass))))
+              validateVariance(tp, variance)
         }
 
         def validateVariances(tps: List[Type], variance: Int) {
@@ -773,6 +800,8 @@ abstract class RefChecks extends InfoTransform {
           false
       }
 
+      def isCaseApply(sym : Symbol) = sym.isSourceMethod && sym.hasFlag(CASE) && sym.name == nme.apply
+
       val savedLocalTyper = localTyper
       val savedCurrentApplication = currentApplication
       val sym = tree.symbol
@@ -809,7 +838,7 @@ abstract class RefChecks extends InfoTransform {
           }
         case TypeApply(fn, args) =>
           checkBounds(NoPrefix, NoSymbol, fn.tpe.typeParams, args map (_.tpe)) 
-          if (sym.isSourceMethod && sym.hasFlag(CASE)) result = toConstructor(tree.pos, tree.tpe)
+          if (isCaseApply(sym)) result = toConstructor(tree.pos, tree.tpe)
 
         case Apply(
           Select(qual, nme.filter), 
@@ -819,6 +848,12 @@ abstract class RefChecks extends InfoTransform {
           if ((pname startsWith nme.CHECK_IF_REFUTABLE_STRING) && 
               isIrrefutable(pat1, tpt.tpe)) =>
             result = qual
+
+        case Apply(Select(New(tpt), name), args) 
+        if (tpt.tpe.typeSymbol == ArrayClass && args.length >= 2) =>
+          unit.deprecationWarning(tree.pos, 
+            "new Array(...) with multiple dimensions has been deprecated; use Array.withDims(...) instead")
+          currentApplication = tree
 
         case Apply(fn, args) =>
           checkSensible(tree.pos, fn, args)
@@ -841,7 +876,7 @@ abstract class RefChecks extends InfoTransform {
               "(such annotations are only allowed in arguments to *-parameters)")
 
         case Ident(name) =>
-          if (sym.isSourceMethod && sym.hasFlag(CASE))
+          if (isCaseApply(sym))
             result = toConstructor(tree.pos, tree.tpe)
           else if (name != nme.WILDCARD && name != nme.WILDCARD_STAR.toTypeName) {
             assert(sym != NoSymbol, tree)//debug
@@ -859,7 +894,7 @@ abstract class RefChecks extends InfoTransform {
             }
             if (!hidden) escapedPrivateLocals += sym
           }
-          if (sym.isSourceMethod && sym.hasFlag(CASE))
+          if (isCaseApply(sym))
             result = toConstructor(tree.pos, tree.tpe)
           else qual match {
             case Super(qualifier, mix) =>

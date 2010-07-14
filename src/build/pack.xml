@@ -36,23 +36,23 @@ MAIN DISTRIBUTION PACKAGING
     <checksum file="${dists.dir}/archives/scala-${version.number}.zip" fileext=".md5"/>
   </target>
 
-  <target name="pack-api.tar" depends="pack-archives.zip">
-    <tar destfile="${dists.dir}/archives/scala-${version.number}-api.tgz"
+  <target name="pack-devel-docs.tar" depends="pack-archives.zip">
+    <tar destfile="${dists.dir}/archives/scala-${version.number}-devel-docs.tgz"
          compression="gzip" longfile="gnu">
-      <tarfileset dir="${dist.dir}/doc/scala-devel-docs/api" prefix="scala-${version.number}-api"/>
+      <tarfileset dir="${dist.dir}/doc/scala-devel-docs" prefix="scala-${version.number}-devel-docs"/>
     </tar>
-    <checksum file="${dists.dir}/archives/scala-${version.number}-api.tgz" fileext=".md5"/>
+    <checksum file="${dists.dir}/archives/scala-${version.number}-devel-docs.tgz" fileext=".md5"/>
   </target>
   
-  <target name="pack-archives.src" depends="pack-api.tar">
+  <target name="pack-archives.src" depends="pack-devel-docs.tar">
     <tar destfile="${dists.dir}/archives/scala-${version.number}-sources.tgz"
          compression="gzip" longfile="gnu">
-      <tarfileset dir="${basedir}">
+      <tarfileset dir="${basedir}" prefix="scala-${version.number}-sources">
+        <exclude name="bin/**"/>
         <exclude name="build/**"/>
         <exclude name="debian/**"/>
         <exclude name="dists/**"/>
         <exclude name="logs/**"/>
-        <exclude name="META-INF/**"/>
         <exclude name="sandbox/**"/>
       </tarfileset>
     </tar>
@@ -77,8 +77,11 @@ MAIN DISTRIBUTION SBAZ
       version="${version.number}"
       desc="The Scala library. This is the minimal requirement to run any Scala program."
       link="${sbaz.universe}/scala-library-${version.number}.sbp">
-      <libset dir="${dist.dir}/lib" includes="scala-library.jar,scala-dbc.jar"/>
-      <srcset dir="${dist.dir}/src" includes="scala-library-src.jar,scala-dbc-src.jar"/>
+      <libset dir="${dist.dir}/lib" includes="scala-library.jar,scala-dbc.jar,scala-swing.jar"/>
+      <srcset dir="${dist.dir}/src" includes="scala-library-src.jar,scala-dbc-src.jar,scala-swing-src.jar"/>
+      <looseset destination="doc">
+        <fileset dir="${dist.dir}/doc" includes="LICENSE,README"/>
+      </looseset>
     </sbaz>
   </target>
   
@@ -109,9 +112,9 @@ MAIN DISTRIBUTION SBAZ
       desc="The Scala test package contains everything needed to test Scala."
       link="${sbaz.universe}/scala-test-${version.number}.sbp">
       <binset dir="${basedir}/test"
-        includes="clitest,diff/diff.*,diff/lib*.dll,scalatest,scalatest.bat,partest,partest.bat"/>
+        includes="clitest,diff/diff.*,diff/lib*.dll,partest,partest.bat"/>
       <miscset dir="${basedir}/test"
-        includes="files/**/*.args,files/**/*.check,files/**/*.jar,files/**/*.java,files/**/*.scala,files/**/*.flags,files/cli/**/*.check.*,files/jvm/*.so,files/shootout/*.javaopts,files/shootout/*.runner,files/shootout/*.txt"/>
+        includes="files/**/*.args,files/**/*.check,files/**/*.dll,files/**/*.jar,files/**/*.java,files/**/*.scala,files/**/*.flags,files/cli/**/*.check.*,files/jvm/*.so,files/shootout/*.javaopts,files/shootout/*.runner,files/shootout/*.txt"/>
         <!-- <srcset dir="${dist.dir}/src" includes="scala-partest-src.jar"/> -->
       <libset dir="${dist.dir}/lib" includes="scala-partest.jar"/>
     </sbaz>
@@ -142,7 +145,73 @@ MAIN DISTRIBUTION SBAZ
 
   
   <target name="pack-sbaz.done" depends="pack-sbaz.all"/>
-  
+
+  <target name="pack-maven.start">
+    <mkdir dir="${dists.dir}/maven/${version.number}"/>
+  </target>
+
+  <target name="pack-maven.libs" depends="pack-maven.start">
+    <macrodef name="mvn-copy-lib">
+      <attribute name="mvn.artifact.name"/>
+      <sequential>
+        <mkdir dir="${dists.dir}/maven/${version.number}/@{mvn.artifact.name}"/>
+        <copy todir="${dists.dir}/maven/${version.number}/@{mvn.artifact.name}">
+          <fileset dir="${dist.dir}/lib/">
+            <filename name="@{mvn.artifact.name}.jar"/>
+          </fileset>
+          <fileset dir="${src.dir}/build/maven/">
+            <filename name="@{mvn.artifact.name}-pom.xml"/>
+          </fileset>
+          <fileset dir="${dist.dir}/src/">
+            <filename name="@{mvn.artifact.name}-src.jar"/>
+          </fileset>
+        </copy>
+      </sequential>
+    </macrodef>
+    <mvn-copy-lib mvn.artifact.name="scala-library"/>
+    <mvn-copy-lib mvn.artifact.name="scala-compiler"/>
+    <mvn-copy-lib mvn.artifact.name="scala-dbc"/>
+    <mvn-copy-lib mvn.artifact.name="scala-swing"/>
+  </target>
+
+  <target name="pack-maven.docs" depends="pack-maven.libs">
+    <jar destfile="${dists.dir}/maven/${version.number}/scala-library/scala-library-docs.jar"
+         basedir="${build-docs.dir}/library">
+      <include name="**/*"/>
+    </jar>
+    <!-- scala-swing api is included in main library api
+    <jar destfile="${dists.dir}/maven/${version.number}/scala-swing/scala-swing-docs.jar"
+         basedir="${build-docs.dir}/swing">
+      <include name="**/*"/>
+    </jar>
+    -->
+  </target>
+
+  <target name="pack-maven.latest.unix" depends="pack-maven.docs" unless="os.win">
+    <symlink link="${dists.dir}/maven/latest"
+             resource="${dists.dir}/maven/${version.number}"
+             overwrite="yes"/>
+  </target>
+
+  <target name="pack-maven.latest.win" depends="pack-maven.docs" if="os.win">
+    <copy todir="${dists.dir}/maven/latest">
+      <fileset dir="${dists.dir}/maven/${version.number}"/>
+    </copy>
+  </target>
+
+  <target name="pack-maven.scripts" depends="pack-maven.latest.unix,pack-maven.latest.win">
+    <copy todir="${dists.dir}/maven/${version.number}"
+          file="${lib-ant.dir}/maven-ant-tasks-2.0.9.jar"/>
+    <copy tofile="${dists.dir}/maven/${version.number}/build.xml"
+          file="${src.dir}/build/maven/maven-deploy.xml"/>
+    <!-- export properties for use when deploying -->
+    <property name="maven.snapshot.version.number"
+              value="${version.major}.${version.minor}.${version.patch}-SNAPSHOT"/>
+    <echoproperties destfile="${dists.dir}/maven/${version.number}/build.properties"/>
+  </target>
+
+  <target name="pack-maven.done" depends="pack-maven.scripts"/>
+
 <!-- ===========================================================================
 JAVA FOUR DISTRIBUTION PACKAGING
 ============================================================================ -->
@@ -228,9 +297,9 @@ MSIL DISTRIBUTION PACKAGING
 <!-- ===========================================================================
 MISCELLANEOUS
 ============================================================================ -->
-  
-  <target name="pack-all.done" depends="pack-archives.done, pack-sbaz.done"/>
-  
+
+  <target name="pack-all.done" depends="pack-archives.done, pack-sbaz.done, pack-maven.done"/>
+
   <target name="fourpack-all.done" depends="fourpack-archives.done"/>
 
   <target name="msilpack-all.done" depends="msilpack-archives.done, msilpack-sbaz.done"/>
@@ -238,7 +307,7 @@ MISCELLANEOUS
 <!-- ===========================================================================
 MISCELLANEOUS
 ============================================================================ -->
-  
+
   <target name="graph.init">
     <echo message="${basedir}/lib/ant/vizant.jar"/>
     <taskdef name="vizant" classname="vizant.Vizant" classpath="${basedir}/../../lib/ant/vizant.jar"/>

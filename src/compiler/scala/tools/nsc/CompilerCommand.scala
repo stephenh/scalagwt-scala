@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -66,6 +66,36 @@ class CompilerCommand(arguments: List[String], val settings: Settings,
                 "\n")
   }
 
+  // If any of these settings is set, the compiler shouldn't
+  // start; an informative message of some sort
+  // should be printed instead.
+  // (note: do not add "files.isEmpty" do this list)
+  val stopSettings=List[(()=>Boolean,
+                         (Global)=>String)](
+    (()=> settings.help.value, compiler =>
+      usageMsg + compiler.pluginOptionsHelp
+    ),
+    (()=> settings.Xhelp.value, compiler =>
+      xusageMsg
+    ),
+    (()=> settings.Yhelp.value, compiler =>
+      yusageMsg
+    ),
+    (()=> settings.showPlugins.value, compiler =>
+      compiler.pluginDescriptions
+    ),
+    (()=> settings.showPhases.value, compiler =>
+      compiler.phaseDescriptions
+    )
+  )
+
+  def shouldStopWithInfo = stopSettings.exists({pair => (pair._1)()})
+  def getInfoMessage(compiler:Global) =
+    stopSettings.find({pair => (pair._1)()}) match {
+      case Some((test,getMessage)) => getMessage(compiler)
+      case None => ""
+    }
+
 
   /** Whether the command was processed okay */
   var ok = true
@@ -77,7 +107,15 @@ class CompilerCommand(arguments: List[String], val settings: Settings,
     var args = arguments
 
     while (!args.isEmpty && ok) {
-      if (args.head startsWith "-") {
+      if (args.head startsWith "@") {
+        try {
+          args = util.ArgumentsExpander.expandArg(args.head) ::: args.tail
+        } catch {
+          case ex: java.io.IOException =>
+            error(ex.getMessage())
+            ok = false
+        }
+      } else if (args.head startsWith "-") {
 	if (interactive) {
           error("no options can be given in interactive mode")
           ok = false

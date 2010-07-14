@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Stepan Koltsov
  */
 // $Id$
@@ -22,7 +22,7 @@ class JLineReader extends InteractiveReader {
     r.setBellEnabled(false)
     r
   }
-  def readLine(prompt: String) = consoleReader.readLine(prompt)
+  def readOneLine(prompt: String) = consoleReader.readLine(prompt) 
   val interactive = true
 }
 

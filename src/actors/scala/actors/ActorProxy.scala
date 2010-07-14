@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2005-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2005-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -8,9 +8,7 @@
 
 // $Id$
 
-
 package scala.actors
-
 
 import java.lang.Thread
 
@@ -21,7 +19,7 @@ import java.lang.Thread
  * @version 0.9.8
  * @author Philipp Haller
  */
-private[actors] class ActorProxy(t: Thread) extends Actor {
+private[actors] class ActorProxy(t: Thread, override final val scheduler: IScheduler) extends Actor {
 
   def act() {}
 

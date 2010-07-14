@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2005-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2005-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -38,13 +38,19 @@ abstract class Future[+T](val ch: InputChannel[Any]) extends Responder[T] with F
  */
 object Futures {
 
+  private val sched = new FJTaskScheduler2(true)
+
   def future[T](body: => T): Future[T] = {
     case object Eval
-    val a = Actor.actor {
-      Actor.react {
-        case Eval => Actor.reply(body)
+    val a = new Actor {
+      override def scheduler: IScheduler = sched
+      def act() {
+        Actor.react {
+          case Eval => Actor.reply(body)
+        }
       }
     }
+    a.start()
     a !! (Eval, { case any => any.asInstanceOf[T] })
   }
 
@@ -72,7 +78,10 @@ object Futures {
    * </p>
    */
   def awaitAll(timeout: Long, fts: Future[Any]*): List[Option[Any]] = {
-    TimerThread.requestTimeout(Actor.self, null, timeout)
+    val thisActor = Actor.self
+    Actor.timer.schedule(new java.util.TimerTask {
+      def run() { thisActor ! TIMEOUT }
+    }, timeout)
 
     var resultsMap: collection.mutable.Map[Int, Option[Any]] = new collection.mutable.HashMap[Int, Option[Any]]
 

@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2002-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -28,7 +28,7 @@ object ScalaRunTime {
   val DoubleTag = ".Double"
   val BooleanTag = ".Boolean"
 
-  def isArray(x: AnyRef): Boolean = (x != null && x.getClass.isArray) || (x != null && x.isInstanceOf[BoxedArray])
+  def isArray(x: AnyRef): Boolean = (x != null && x.getClass.isArray) || (x != null && x.isInstanceOf[BoxedArray[_]])
   def isValueTag(tag: String) = tag.charAt(0) == '.'
   def isValueClass(clazz: Class[_]) = clazz.isPrimitive()
   
@@ -86,7 +86,8 @@ object ScalaRunTime {
     val arr =  x.productArity
     var i = 0
     while (i < arr) {
-      code = code * 41 + x.productElement(i).hashCode()
+      val elem = x.productElement(i)
+      code = code * 41 + (if (elem == null) 0 else elem.hashCode())
       i += 1
     }
     code
@@ -126,13 +127,13 @@ object ScalaRunTime {
 
   def Seq[a](xs: a*): Seq[a] = null // interpreted specially by new backend.
 
-  def arrayValue(x: BoxedArray, elemTag: String): AnyRef =
+  def arrayValue[A](x: BoxedArray[A], elemTag: String): AnyRef =
     if (x eq null) null else x.unbox(elemTag)
 
-  def arrayValue(x: BoxedArray, elemClass: Class[_]): AnyRef =
+  def arrayValue[A](x: BoxedArray[A], elemClass: Class[_]): AnyRef =
     if (x eq null) null else x.unbox(elemClass)
 
-  def boxArray(value: AnyRef): BoxedArray = value match {
+  def boxArray(value: AnyRef): BoxedArray[_] = value match {
     case x: Array[Byte] => new BoxedByteArray(x)
     case x: Array[Short] => new BoxedShortArray(x)
     case x: Array[Char] => new BoxedCharArray(x)
@@ -142,6 +143,25 @@ object ScalaRunTime {
     case x: Array[Double] => new BoxedDoubleArray(x)
     case x: Array[Boolean] => new BoxedBooleanArray(x)
     case x: Array[AnyRef] => new BoxedObjectArray(x)
-    case x: BoxedArray => x
+    case x: BoxedArray[_] => x
+  }
+
+  /** Given any Scala value, convert it to a String.
+   *
+   * The primary motivation for this method is to provide a means for
+   * correctly obtaining a String representation of a value, while
+   * avoiding the pitfalls of naïvely calling toString on said value.
+   * In particular, it addresses the fact that (a) toString cannot be
+   * called on null and (b) depending on the apparent type of an
+   * array, toString may or may not print it in a human-readable form.
+   *
+   * @param arg the value to stringify 
+   * @return a string representation of <code>arg</code>
+   *
+   */  
+  def stringOf(arg : Any): String = arg match {
+    case null => "null"
+    case (arg : AnyRef) if isArray(arg) => boxArray(arg).deepToString
+    case arg => arg.toString
   }
 }

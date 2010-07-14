@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Stephane Micheloud
  */
 //$Id$
@@ -36,7 +36,7 @@ trait Command {
   def authors = Section("AUTHOR",
 
     "Written by Martin Odersky and other members of the " &
-    Link("Scala team", "http://scala-lang.org/community/") & ".")
+    Link("Scala team", "http://www.scala-lang.org/node/89") & ".")
 
   def copyright = Section("COPYRIGHT",
 
@@ -47,7 +47,7 @@ trait Command {
 
   def bugs = Section("REPORTING BUGS",
 
-    "Report bugs to " & Mono("<scala@listes.epfl.ch>") & ".")
+    "Report bugs to " & Mono("http://lampsvn.epfl.ch/trac/scala") & ".")
 
   //private val df = new java.text.SimpleDateFormat("MMM d, yyyy")
   //private val rightNow = new java.util.Date()

@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2002-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -35,14 +35,47 @@ object Array {
    */
   def copy(src: AnyRef, srcPos: Int, dest: AnyRef, destPos: Int, length: Int) {
     src match {
-      case xs: runtime.BoxedArray =>
+      case xs: runtime.BoxedArray[_] =>
         xs.copyTo(srcPos, dest, destPos, length)
       case _ =>
         dest match {
-          case xs: runtime.BoxedArray =>
+          case xs: runtime.BoxedArray[_] =>
             xs.copyFrom(src, srcPos, destPos, length)
           case _ =>
-            arraycopy(src, srcPos, dest, destPos, length)
+            def fillDest[T](da: Array[T], sa: Int=>T) {
+              var d = destPos
+              for (s <- srcPos to srcPos+length-1) {
+                da(d) = sa(s); d += 1
+              }
+            }
+            if (dest.isInstanceOf[Array[Any]]) {
+              def fill(sa: Int=>Any) = fillDest(dest.asInstanceOf[Array[Any]], sa)
+              src match {
+                case sa:Array[Int]     => fill(s=>Int.box(sa(s)))
+                case sa:Array[Long]    => fill(s=>Long.box(sa(s)))
+                case sa:Array[Char]    => fill(s=>Char.box(sa(s)))
+                case sa:Array[Boolean] => fill(s=>Boolean.box(sa(s)))
+                case sa:Array[Byte]    => fill(s=>Byte.box(sa(s)))
+                case sa:Array[Short]   => fill(s=>Short.box(sa(s)))
+                case sa:Array[Double]  => fill(s=>Double.box(sa(s)))
+                case sa:Array[Float]   => fill(s=>Float.box(sa(s)))
+                case _ => arraycopy(src, srcPos, dest, destPos, length)
+              }
+            } else if (dest.isInstanceOf[Array[AnyVal]]) {
+              def fill(sa: Int=>AnyVal) = fillDest(dest.asInstanceOf[Array[AnyVal]], sa)
+              src match {
+                case sa:Array[Int]     => fill(sa(_))
+                case sa:Array[Long]    => fill(sa(_))
+                case sa:Array[Char]    => fill(sa(_))
+                case sa:Array[Boolean] => fill(sa(_))
+                case sa:Array[Byte]    => fill(sa(_))
+                case sa:Array[Short]   => fill(sa(_))
+                case sa:Array[Double]  => fill(sa(_))
+                case sa:Array[Float]   => fill(sa(_))
+                case _ => arraycopy(src, srcPos, dest, destPos, length)
+              }
+            } else
+              arraycopy(src, srcPos, dest, destPos, length)
         }
     }
   }
@@ -220,6 +253,18 @@ object Array {
    */
   def fromFunction[A](f: (Int, Int, Int, Int, Int) => A)(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int): Array[Array[Array[Array[Array[A]]]]] = 
     fromFunction(i => fromFunction(f(i, _, _, _, _))(n2, n3, n4, n5))(n1)
+
+  /** Create array with given dimensions */
+  def withDims[A](n1: Int): Array[A] = 
+    new Array[A](n1)
+  def withDims[A](n1: Int, n2: Int): Array[Array[A]] = 
+    fromFunction(_ => withDims[A](n2))(n1)
+  def withDims[A](n1: Int, n2: Int, n3: Int): Array[Array[Array[A]]] = 
+    fromFunction(_ => withDims[A](n2, n3))(n1)
+  def withDims[A](n1: Int, n2: Int, n3: Int, n4: Int): Array[Array[Array[Array[A]]]] = 
+    fromFunction(_ => withDims[A](n2, n3, n4))(n1)
+  def withDims[A](n1: Int, n2: Int, n3: Int, n4: Int, n5: Int): Array[Array[Array[Array[Array[A]]]]] = 
+    fromFunction(_ => withDims[A](n2, n3, n4, n5))(n1)
 
  /** This method is called as a result of a pattern match { case Array(...) => } or val Array(...) = ....
    *

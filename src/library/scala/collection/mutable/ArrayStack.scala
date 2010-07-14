@@ -1,3 +1,14 @@
+/*                     __                                               *\
+**     ________ ___   / /  ___     Scala API                            **
+**    / __/ __// _ | / /  / _ |    (c) 2003-2009, LAMP/EPFL             **
+**  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
+** /____/\___/_/ |_/____/_/ | |                                         **
+**                          |/                                          **
+\*                                                                      */
+
+// $Id$
+
+
 package scala.collection.mutable;
 
 private object Utils{
@@ -17,6 +28,8 @@ private object Utils{
 /**
  * Simple stack class backed by an array. Should be significantly faster
  * than the standard mutable stack. 
+ *
+ * @author David MacIver
  */
 class ArrayStack[T] private(private var table : Array[AnyRef],
                             private var index : Int) extends Collection[T]{

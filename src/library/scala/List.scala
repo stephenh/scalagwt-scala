@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2003-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2003-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -538,7 +538,7 @@ sealed abstract class List[+A] extends Seq[A] with Product {
   /** Reverse the given prefix and append the current list to that.
    *  This function is equivalent to an application of <code>reverse</code>
    *  on the prefix followed by a call to <code>:::</code>, but more
-   *  efficient (and tail recursive).
+   *  efficient.
    *
    *  @param prefix the prefix to reverse and then prepend
    *  @return       the concatenation of the reversed prefix and the current list.
@@ -705,7 +705,7 @@ sealed abstract class List[+A] extends Seq[A] with Product {
   /** Returns the list wihout its rightmost <code>n</code> elements.
    *
    *  @param n the number of elements to take
-   *  @return the suffix of length <code>n</code> of the list
+   *  @return the list without its rightmost <code>n</code> elements
    */
   def dropRight(n: Int): List[A] = {
     def loop(lead: List[A], lag: List[A]): List[A] = lead match {
@@ -1158,7 +1158,7 @@ sealed abstract class List[+A] extends Seq[A] with Product {
     var these = this
     var those = that
     while (!these.isEmpty && !those.isEmpty) {
-      b += (these.head, those.head)
+      b += ((these.head, those.head))
       these = these.tail
       those = those.tail
     }
@@ -1177,7 +1177,7 @@ sealed abstract class List[+A] extends Seq[A] with Product {
     var idx = 0
 
     while(!these.isEmpty) {
-      b += (these.head, idx)
+      b += ((these.head, idx))
       these = these.tail
       idx += 1
     }
@@ -1209,16 +1209,16 @@ sealed abstract class List[+A] extends Seq[A] with Product {
     var these = this
     var those = that
     while (!these.isEmpty && !those.isEmpty) {
-      b += (these.head, those.head)
+      b += ((these.head, those.head))
       these = these.tail
       those = those.tail
     }
     while (!these.isEmpty) {
-      b += (these.head, thatElem)
+      b += ((these.head, thatElem))
       these = these.tail
     }
     while (!those.isEmpty) {
-      b += (thisElem, those.head)
+      b += ((thisElem, those.head))
       those = those.tail
     }
     b.toList
@@ -1289,7 +1289,13 @@ sealed abstract class List[+A] extends Seq[A] with Product {
   /** Concatenate the elements of this list. The elements of this list
    *  should be a <code>Iterables</code>.
    *
-   *  Note: The compiler might not be able to infer the type parameter.
+   *  Note: The compiler might not be able to infer the type parameter,
+   *        so it is recommended to provide an explicit type argument.
+   *
+   *  Example: 
+   *    <code>List(List(1, 3), List(2)).flatten[Int]</code>
+   *    returns
+   *    <code>List(1, 3, 2)</code>
    *
    *  @param f    An implicit conversion to an <code>Iterable</code> instance.
    *  @return     The concatenation of all elements of iterables in this list.

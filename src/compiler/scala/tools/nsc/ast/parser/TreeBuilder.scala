@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -61,11 +61,11 @@ abstract class TreeBuilder {
     override def traverse(tree: Tree): Unit = tree match {
       case Bind(name, Typed(tree1, tpt)) =>
         if ((name != nme.WILDCARD) && (buf.elements forall (name !=)))
-          buf += (name, if (treeInfo.mayBeTypePat(tpt)) TypeTree() else tpt, tree.pos)
+          buf += ((name, if (treeInfo.mayBeTypePat(tpt)) TypeTree() else tpt, tree.pos))
         traverse(tree1)
       case Bind(name, tree1) =>
         if ((name != nme.WILDCARD) && (buf.elements forall (name !=)))
-          buf += (name, TypeTree(), tree.pos)
+          buf += ((name, TypeTree(), tree.pos))
         traverse(tree1)
       case _ =>
         super.traverse(tree)
@@ -147,7 +147,7 @@ abstract class TreeBuilder {
       val x = nme.ANON_CLASS_NAME.toTypeName
       Block(
         List(ClassDef(
-          Modifiers(FINAL | SYNTHETIC), x, List(),
+          Modifiers(FINAL), x, List(),
           Template(parents, self, NoMods, List(List()), argss, stats))),
         New(Ident(x), List(List())))
     }
@@ -451,6 +451,12 @@ abstract class TreeBuilder {
       PackageDef(name, stats).setPos(pkg.pos)
     case Select(qual, name) =>
       makePackaging(qual, List(PackageDef(name, stats).setPos(pkg.pos)))
+  }
+
+  /** Create a tree representing a package object */
+  def makePackageObject(objDef: ModuleDef): PackageDef = objDef match {
+    case ModuleDef(mods, name, impl) =>
+      makePackaging(Ident(name), List(ModuleDef(mods, nme.PACKAGEkw, impl)))
   }
 
   case class Parens(args: List[Tree]) extends Tree

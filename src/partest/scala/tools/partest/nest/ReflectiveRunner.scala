@@ -1,5 +1,5 @@
 /* NEST (New Scala Test)
- * Copyright 2007-2008 LAMP/EPFL
+ * Copyright 2007-2009 LAMP/EPFL
  * @author Philipp Haller
  */
 
@@ -40,13 +40,9 @@ class ReflectiveRunner extends RunnerUtils {
     import fileManager.{latestCompFile, latestLibFile, latestActFile,
                         latestPartestFile, latestFjbgFile}
 
-    val sepUrls = if (!classPath.isEmpty)
-      Array(latestCompFile.toURL, latestLibFile.toURL,
-            latestActFile.toURL, latestPartestFile.toURL,
-            latestFjbgFile.toURL)
-    else
-      Array(latestCompFile.toURL, latestLibFile.toURL,
-            latestActFile.toURL, latestPartestFile.toURL)
+    val sepUrls = Array(latestCompFile.toURL, latestLibFile.toURL,
+                        latestActFile.toURL, latestPartestFile.toURL,
+                        latestFjbgFile.toURL)
 
     val sepLoader = new java.net.URLClassLoader(sepUrls, null)
 
@@ -56,6 +52,24 @@ class ReflectiveRunner extends RunnerUtils {
     }
 
     try {
+      val paths = if (!classPath.isEmpty)
+        Array(latestCompFile.getPath, latestLibFile.getPath,
+              latestActFile.getPath, latestPartestFile.getPath,
+              latestFjbgFile.getPath)
+      else
+        Array(latestCompFile.getPath, latestLibFile.getPath,
+              latestActFile.getPath, latestPartestFile.getPath)
+      val newClasspath = paths.mkString(java.io.File.pathSeparator)
+      System.setProperty("java.class.path", newClasspath)
+      System.setProperty("env.classpath", newClasspath)
+      System.setProperty("scala.home", "")
+      if (fileManager.debug) {
+        println("java.class.path: "+System.getProperty("java.class.path"))
+        println("env.classpath: "+System.getProperty("env.classpath"))
+        println("sun.boot.class.path: "+System.getProperty("sun.boot.class.path"))
+        println("java.ext.dirs: "+System.getProperty("java.ext.dirs"))
+      }
+      
       val sepRunnerClass =
         sepLoader.loadClass("scala.tools.partest.nest.ConsoleRunner")
 

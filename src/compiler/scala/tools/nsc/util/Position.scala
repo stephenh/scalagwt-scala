@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -71,7 +71,9 @@ trait Position {
 }
 
 case object NoPosition extends Position
-case class FakePos(msg: String) extends Position
+case class FakePos(msg: String) extends Position {
+  override def toString=msg
+}
 
 case class LinePosition(source0: SourceFile, line0: Int) extends Position {
   assert(line0 >= 1)
@@ -90,3 +92,8 @@ case class OffsetPosition(source0: SourceFile, offset0: Int) extends Position {
   }
   override def hashCode = offset0 + source0.file.hashCode
 }
+
+/** new for position ranges */
+class RangePosition(source0: SourceFile, offset0: Int, start: Int, end: Int) 
+extends OffsetPosition(source0, offset0)
+  

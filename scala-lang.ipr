@@ -1,0 +1,1316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project relativePaths="false" version="4">
+  <component name="AntConfiguration">
+    <defaultAnt bundledAnt="true" />
+  </component>
+  <component name="BuildJarProjectSettings">
+    <option name="BUILD_JARS_ON_MAKE" value="false" />
+  </component>
+  <component name="CodeStyleSettingsManager">
+    <option name="PER_PROJECT_SETTINGS" />
+    <option name="USE_PER_PROJECT_SETTINGS" value="false" />
+  </component>
+  <component name="CompilerConfiguration">
+    <option name="DEFAULT_COMPILER" value="Javac" />
+    <option name="DEPLOY_AFTER_MAKE" value="0" />
+    <resourceExtensions>
+      <entry name=".+\.(properties|xml|html|dtd|tld)" />
+      <entry name=".+\.(gif|png|jpeg|jpg)" />
+    </resourceExtensions>
+    <wildcardResourcePatterns>
+      <entry name="?*.properties" />
+      <entry name="?*.xml" />
+      <entry name="?*.gif" />
+      <entry name="?*.png" />
+      <entry name="?*.jpeg" />
+      <entry name="?*.jpg" />
+      <entry name="?*.html" />
+      <entry name="?*.dtd" />
+      <entry name="?*.tld" />
+      <entry name="?*.ftl" />
+    </wildcardResourcePatterns>
+  </component>
+  <component name="CopyrightManager" default="">
+    <module2copyright />
+  </component>
+  <component name="DependencyValidationManager">
+    <option name="SKIP_IMPORT_STATEMENTS" value="false" />
+  </component>
+  <component name="EclipseCompilerSettings">
+    <option name="DEBUGGING_INFO" value="true" />
+    <option name="GENERATE_NO_WARNINGS" value="true" />
+    <option name="DEPRECATION" value="false" />
+    <option name="ADDITIONAL_OPTIONS_STRING" value="" />
+    <option name="MAXIMUM_HEAP_SIZE" value="128" />
+  </component>
+  <component name="Encoding" useUTFGuessing="true" native2AsciiForPropertiesFiles="false" />
+  <component name="InspectionProjectProfileManager">
+    <option name="PROJECT_PROFILE" value="Project Default" />
+    <option name="USE_PROJECT_LEVEL_SETTINGS" value="false" />
+    <scopes />
+    <profiles>
+      <profile version="1.0" is_locked="false">
+        <option name="myName" value="Project Default" />
+        <option name="myLocal" value="false" />
+      </profile>
+    </profiles>
+    <list size="0" />
+  </component>
+  <component name="JavacSettings">
+    <option name="DEBUGGING_INFO" value="true" />
+    <option name="GENERATE_NO_WARNINGS" value="false" />
+    <option name="DEPRECATION" value="true" />
+    <option name="ADDITIONAL_OPTIONS_STRING" value="" />
+    <option name="MAXIMUM_HEAP_SIZE" value="128" />
+  </component>
+  <component name="JavadocGenerationManager">
+    <option name="OUTPUT_DIRECTORY" />
+    <option name="OPTION_SCOPE" value="protected" />
+    <option name="OPTION_HIERARCHY" value="true" />
+    <option name="OPTION_NAVIGATOR" value="true" />
+    <option name="OPTION_INDEX" value="true" />
+    <option name="OPTION_SEPARATE_INDEX" value="true" />
+    <option name="OPTION_DOCUMENT_TAG_USE" value="false" />
+    <option name="OPTION_DOCUMENT_TAG_AUTHOR" value="false" />
+    <option name="OPTION_DOCUMENT_TAG_VERSION" value="false" />
+    <option name="OPTION_DOCUMENT_TAG_DEPRECATED" value="true" />
+    <option name="OPTION_DEPRECATED_LIST" value="true" />
+    <option name="OTHER_OPTIONS" value="" />
+    <option name="HEAP_SIZE" />
+    <option name="LOCALE" />
+    <option name="OPEN_IN_BROWSER" value="true" />
+  </component>
+  <component name="JikesSettings">
+    <option name="JIKES_PATH" value="" />
+    <option name="DEBUGGING_INFO" value="true" />
+    <option name="DEPRECATION" value="true" />
+    <option name="GENERATE_NO_WARNINGS" value="false" />
+    <option name="IS_EMACS_ERRORS_MODE" value="true" />
+    <option name="ADDITIONAL_OPTIONS_STRING" value="" />
+  </component>
+  <component name="Palette2">
+    <group name="Swing">
+      <item class="com.intellij.uiDesigner.HSpacer" tooltip-text="Horizontal Spacer" icon="/com/intellij/uiDesigner/icons/hspacer.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="1" hsize-policy="6" anchor="0" fill="1" />
+      </item>
+      <item class="com.intellij.uiDesigner.VSpacer" tooltip-text="Vertical Spacer" icon="/com/intellij/uiDesigner/icons/vspacer.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="6" hsize-policy="1" anchor="0" fill="2" />
+      </item>
+      <item class="javax.swing.JPanel" icon="/com/intellij/uiDesigner/icons/panel.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="3" hsize-policy="3" anchor="0" fill="3" />
+      </item>
+      <item class="javax.swing.JScrollPane" icon="/com/intellij/uiDesigner/icons/scrollPane.png" removable="false" auto-create-binding="false" can-attach-label="true">
+        <default-constraints vsize-policy="7" hsize-policy="7" anchor="0" fill="3" />
+      </item>
+      <item class="javax.swing.JButton" icon="/com/intellij/uiDesigner/icons/button.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="3" anchor="0" fill="1" />
+        <initial-values>
+          <property name="text" value="Button" />
+        </initial-values>
+      </item>
+      <item class="javax.swing.JRadioButton" icon="/com/intellij/uiDesigner/icons/radioButton.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="3" anchor="8" fill="0" />
+        <initial-values>
+          <property name="text" value="RadioButton" />
+        </initial-values>
+      </item>
+      <item class="javax.swing.JCheckBox" icon="/com/intellij/uiDesigner/icons/checkBox.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="3" anchor="8" fill="0" />
+        <initial-values>
+          <property name="text" value="CheckBox" />
+        </initial-values>
+      </item>
+      <item class="javax.swing.JLabel" icon="/com/intellij/uiDesigner/icons/label.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="0" anchor="8" fill="0" />
+        <initial-values>
+          <property name="text" value="Label" />
+        </initial-values>
+      </item>
+      <item class="javax.swing.JTextField" icon="/com/intellij/uiDesigner/icons/textField.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="0" hsize-policy="6" anchor="8" fill="1">
+          <preferred-size width="150" height="-1" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JPasswordField" icon="/com/intellij/uiDesigner/icons/passwordField.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="0" hsize-policy="6" anchor="8" fill="1">
+          <preferred-size width="150" height="-1" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JFormattedTextField" icon="/com/intellij/uiDesigner/icons/formattedTextField.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="0" hsize-policy="6" anchor="8" fill="1">
+          <preferred-size width="150" height="-1" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JTextArea" icon="/com/intellij/uiDesigner/icons/textArea.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="6" hsize-policy="6" anchor="0" fill="3">
+          <preferred-size width="150" height="50" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JTextPane" icon="/com/intellij/uiDesigner/icons/textPane.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="6" hsize-policy="6" anchor="0" fill="3">
+          <preferred-size width="150" height="50" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JEditorPane" icon="/com/intellij/uiDesigner/icons/editorPane.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="6" hsize-policy="6" anchor="0" fill="3">
+          <preferred-size width="150" height="50" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JComboBox" icon="/com/intellij/uiDesigner/icons/comboBox.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="0" hsize-policy="2" anchor="8" fill="1" />
+      </item>
+      <item class="javax.swing.JTable" icon="/com/intellij/uiDesigner/icons/table.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="6" hsize-policy="6" anchor="0" fill="3">
+          <preferred-size width="150" height="50" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JList" icon="/com/intellij/uiDesigner/icons/list.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="6" hsize-policy="2" anchor="0" fill="3">
+          <preferred-size width="150" height="50" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JTree" icon="/com/intellij/uiDesigner/icons/tree.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="6" hsize-policy="6" anchor="0" fill="3">
+          <preferred-size width="150" height="50" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JTabbedPane" icon="/com/intellij/uiDesigner/icons/tabbedPane.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="3" hsize-policy="3" anchor="0" fill="3">
+          <preferred-size width="200" height="200" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JSplitPane" icon="/com/intellij/uiDesigner/icons/splitPane.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="3" hsize-policy="3" anchor="0" fill="3">
+          <preferred-size width="200" height="200" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JSpinner" icon="/com/intellij/uiDesigner/icons/spinner.png" removable="false" auto-create-binding="true" can-attach-label="true">
+        <default-constraints vsize-policy="0" hsize-policy="6" anchor="8" fill="1" />
+      </item>
+      <item class="javax.swing.JSlider" icon="/com/intellij/uiDesigner/icons/slider.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="6" anchor="8" fill="1" />
+      </item>
+      <item class="javax.swing.JSeparator" icon="/com/intellij/uiDesigner/icons/separator.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="6" hsize-policy="6" anchor="0" fill="3" />
+      </item>
+      <item class="javax.swing.JProgressBar" icon="/com/intellij/uiDesigner/icons/progressbar.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="6" anchor="0" fill="1" />
+      </item>
+      <item class="javax.swing.JToolBar" icon="/com/intellij/uiDesigner/icons/toolbar.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="6" anchor="0" fill="1">
+          <preferred-size width="-1" height="20" />
+        </default-constraints>
+      </item>
+      <item class="javax.swing.JToolBar$Separator" icon="/com/intellij/uiDesigner/icons/toolbarSeparator.png" removable="false" auto-create-binding="false" can-attach-label="false">
+        <default-constraints vsize-policy="0" hsize-policy="0" anchor="0" fill="1" />
+      </item>
+      <item class="javax.swing.JScrollBar" icon="/com/intellij/uiDesigner/icons/scrollbar.png" removable="false" auto-create-binding="true" can-attach-label="false">
+        <default-constraints vsize-policy="6" hsize-policy="0" anchor="0" fill="2" />
+      </item>
+    </group>
+  </component>
+  <component name="ProjectDetails">
+    <option name="projectName" value="scala-lang" />
+  </component>
+  <component name="ProjectFileVersion" converted="true" />
+  <component name="ProjectKey">
+    <option name="state" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/trunk/scala-lang.ipr" />
+  </component>
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/test/files/Files.iml" filepath="$PROJECT_DIR$/test/files/Files.iml" />
+      <module fileurl="file://$PROJECT_DIR$/src/Scala-lang.iml" filepath="$PROJECT_DIR$/src/Scala-lang.iml" />
+    </modules>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_5" assert-keyword="true" jdk-15="true" project-jdk-name="1.6" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+  <component name="RmicSettings">
+    <option name="IS_EANABLED" value="false" />
+    <option name="DEBUGGING_INFO" value="true" />
+    <option name="GENERATE_NO_WARNINGS" value="false" />
+    <option name="GENERATE_IIOP_STUBS" value="false" />
+    <option name="ADDITIONAL_OPTIONS_STRING" value="" />
+  </component>
+  <component name="SvnBranchConfigurationManager">
+    <option name="myConfigurationMap">
+      <map>
+        <entry key="$PROJECT_DIR$">
+          <value>
+            <SvnBranchConfiguration>
+              <option name="branchMap">
+                <map>
+                  <entry key="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches">
+                    <value>
+                      <list>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231861025618" />
+                          <option name="revision" value="16901" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-detach" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231858976614" />
+                          <option name="revision" value="16898" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.x" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231508965295" />
+                          <option name="revision" value="16880" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-jvm6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231501413531" />
+                          <option name="revision" value="16879" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/java2scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1228838751575" />
+                          <option name="revision" value="16736" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/specialized" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1228323217725" />
+                          <option name="revision" value="16701" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1227628855483" />
+                          <option name="revision" value="16624" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/devel-base-2.8.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1226225671732" />
+                          <option name="revision" value="16518" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/virtual-traits" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225446395463" />
+                          <option name="revision" value="16451" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/maven2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1218651634942" />
+                          <option name="revision" value="15787" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/jvm-src" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1216745765826" />
+                          <option name="revision" value="15590" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-hlc" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1216628886609" />
+                          <option name="revision" value="15575" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/named-args" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1213603818236" />
+                          <option name="revision" value="15382" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/manifests" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1210161350771" />
+                          <option name="revision" value="14942" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1209493835634" />
+                          <option name="revision" value="14844" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/metamodel" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1204881523837" />
+                          <option name="revision" value="14305" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1201885916291" />
+                          <option name="revision" value="13865" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-refactor" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1201616792699" />
+                          <option name="revision" value="13831" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/remoteactors" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1200143791523" />
+                          <option name="revision" value="13693" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-actorgroups" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1199981833779" />
+                          <option name="revision" value="13682" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-detach-old" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1198074394427" />
+                          <option name="revision" value="13594" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.6.1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1196227891383" />
+                          <option name="revision" value="13368" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/annots-normtrees" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189538025971" />
+                          <option name="revision" value="12850" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.6.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189346174982" />
+                          <option name="revision" value="12828" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/extractified" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189179036169" />
+                          <option name="revision" value="12825" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-cont" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1188480259560" />
+                          <option name="revision" value="12733" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-partest" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1187725049790" />
+                          <option name="revision" value="12617" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/annots-asf" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1182954216798" />
+                          <option name="revision" value="12147" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/lazyvals" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181743213119" />
+                          <option name="revision" value="12007" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.5.1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181058413098" />
+                          <option name="revision" value="11910" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/plugins" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1179757277648" />
+                          <option name="revision" value="11113" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.5.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1177501547066" />
+                          <option name="revision" value="10816" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/cldc-scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1175802131684" />
+                          <option name="revision" value="10641" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/tcpoly" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1174496322841" />
+                          <option name="revision" value="10435" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.4.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1172856005606" />
+                          <option name="revision" value="10176" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/nullary" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1170171835368" />
+                          <option name="revision" value="9809" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/dotnet-scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1161699710794" />
+                          <option name="revision" value="9042" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/unapply" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1156940790560" />
+                          <option name="revision" value="8538" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/typestate" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1156342245244" />
+                          <option name="revision" value="8487" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/staged-scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1153239352056" />
+                          <option name="revision" value="8187" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/ape" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1139574278505" />
+                          <option name="revision" value="5728" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/old-scala" />
+                        </SvnBranchItem>
+                      </list>
+                    </value>
+                  </entry>
+                  <entry key="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags">
+                    <value>
+                      <list>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231421566832" />
+                          <option name="revision" value="16872" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_3_RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1230037118235" />
+                          <option name="revision" value="16823" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_3_RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1226268572933" />
+                          <option name="revision" value="16530" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225577892279" />
+                          <option name="revision" value="16480" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225367857342" />
+                          <option name="revision" value="16435" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC5" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225119477029" />
+                          <option name="revision" value="16373" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC4" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1223635372208" />
+                          <option name="revision" value="16232" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1221829536529" />
+                          <option name="revision" value="16148" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1219238740812" />
+                          <option name="revision" value="15867" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1209989776237" />
+                          <option name="revision" value="14911" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_1_final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1208899234348" />
+                          <option name="revision" value="14793" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_1_RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1207845666631" />
+                          <option name="revision" value="14619" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_1_RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1204881724315" />
+                          <option name="revision" value="14314" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1204279668696" />
+                          <option name="revision" value="14216" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-RC3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1202999233257" />
+                          <option name="revision" value="14000" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1202403244489" />
+                          <option name="revision" value="13929" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1198074965911" />
+                          <option name="revision" value="13605" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_1-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1197637823188" />
+                          <option name="revision" value="13552" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_1-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1196435533102" />
+                          <option name="revision" value="13396" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_1-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189538057378" />
+                          <option name="revision" value="12859" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189002926325" />
+                          <option name="revision" value="12810" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-RC3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1188828108613" />
+                          <option name="revision" value="12768" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1185548231248" />
+                          <option name="revision" value="12454" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181743256442" />
+                          <option name="revision" value="12016" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_1-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181060054894" />
+                          <option name="revision" value="11921" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_1-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1179757314562" />
+                          <option name="revision" value="11122" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1178887127917" />
+                          <option name="revision" value="11009" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1178116502004" />
+                          <option name="revision" value="10939" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1174495986723" />
+                          <option name="revision" value="10433" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_4_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1174066168422" />
+                          <option name="revision" value="10386" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_4_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1173452814773" />
+                          <option name="revision" value="10291" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_4_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1171984673239" />
+                          <option name="revision" value="10054" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_3_10048" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1169767062401" />
+                          <option name="revision" value="9749" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1169579945413" />
+                          <option name="revision" value="9699" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1165431112806" />
+                          <option name="revision" value="9479" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1164302060008" />
+                          <option name="revision" value="9340" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1163759795167" />
+                          <option name="revision" value="9285" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0_9278" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1162818772041" />
+                          <option name="revision" value="9154" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0_9153" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1161687822963" />
+                          <option name="revision" value="9028" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0_9025" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1160573945985" />
+                          <option name="revision" value="8933" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1156338855539" />
+                          <option name="revision" value="8479" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_8" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1154099800448" />
+                          <option name="revision" value="8284" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_7_patch8283" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1153336113043" />
+                          <option name="revision" value="8209" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_7" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1150469198848" />
+                          <option name="revision" value="7889" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1148491824332" />
+                          <option name="revision" value="7591" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_5" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1146486546009" />
+                          <option name="revision" value="7299" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_4" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1144939316350" />
+                          <option name="revision" value="7140" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1143831697396" />
+                          <option name="revision" value="7021" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1143630923057" />
+                          <option name="revision" value="6966" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1142614219544" />
+                          <option name="revision" value="6828" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1142205516228" />
+                          <option name="revision" value="6723" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_0_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1137666255340" />
+                          <option name="revision" value="5579" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_1_4_0_4" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1132146448000" />
+                          <option name="revision" value="4928" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_1_4_0_3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1077010311000" />
+                          <option name="revision" value="2598" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/release-1_1_0-b0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1074610927000" />
+                          <option name="revision" value="2427" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/release-1_0_0-b6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1074534383000" />
+                          <option name="revision" value="2409" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/release-1_0_0-b5" />
+                        </SvnBranchItem>
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+              <option name="branchUrls">
+                <list>
+                  <option value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches" />
+                  <option value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags" />
+                </list>
+              </option>
+              <option name="trunkUrl" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/trunk" />
+            </SvnBranchConfiguration>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/test/files">
+          <value>
+            <SvnBranchConfiguration>
+              <option name="branchMap">
+                <map>
+                  <entry key="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches">
+                    <value>
+                      <list>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231861025618" />
+                          <option name="revision" value="16901" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-detach" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231858976614" />
+                          <option name="revision" value="16898" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.x" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231508965295" />
+                          <option name="revision" value="16880" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-jvm6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231501413531" />
+                          <option name="revision" value="16879" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/java2scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1228838751575" />
+                          <option name="revision" value="16736" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/specialized" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1228323217725" />
+                          <option name="revision" value="16701" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1227628855483" />
+                          <option name="revision" value="16624" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/devel-base-2.8.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1226225671732" />
+                          <option name="revision" value="16518" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/virtual-traits" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225446395463" />
+                          <option name="revision" value="16451" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/maven2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1218651634942" />
+                          <option name="revision" value="15787" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/jvm-src" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1216745765826" />
+                          <option name="revision" value="15590" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-hlc" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1216628886609" />
+                          <option name="revision" value="15575" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/named-args" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1213603818236" />
+                          <option name="revision" value="15382" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/manifests" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1210161350771" />
+                          <option name="revision" value="14942" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1209493835634" />
+                          <option name="revision" value="14844" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/metamodel" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1204881523837" />
+                          <option name="revision" value="14305" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.7.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1201885916291" />
+                          <option name="revision" value="13865" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-refactor" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1201616792699" />
+                          <option name="revision" value="13831" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/remoteactors" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1200143791523" />
+                          <option name="revision" value="13693" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-actorgroups" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1199981833779" />
+                          <option name="revision" value="13682" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-detach-old" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1198074394427" />
+                          <option name="revision" value="13594" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.6.1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1196227891383" />
+                          <option name="revision" value="13368" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/annots-normtrees" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189538025971" />
+                          <option name="revision" value="12850" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.6.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189346174982" />
+                          <option name="revision" value="12828" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/extractified" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189179036169" />
+                          <option name="revision" value="12825" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-cont" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1188480259560" />
+                          <option name="revision" value="12733" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/scala-partest" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1187725049790" />
+                          <option name="revision" value="12617" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/annots-asf" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1182954216798" />
+                          <option name="revision" value="12147" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/lazyvals" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181743213119" />
+                          <option name="revision" value="12007" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.5.1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181058413098" />
+                          <option name="revision" value="11910" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/plugins" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1179757277648" />
+                          <option name="revision" value="11113" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.5.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1177501547066" />
+                          <option name="revision" value="10816" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/cldc-scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1175802131684" />
+                          <option name="revision" value="10641" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/tcpoly" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1174496322841" />
+                          <option name="revision" value="10435" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/2.4.0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1172856005606" />
+                          <option name="revision" value="10176" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/nullary" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1170171835368" />
+                          <option name="revision" value="9809" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/dotnet-scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1161699710794" />
+                          <option name="revision" value="9042" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/unapply" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1156940790560" />
+                          <option name="revision" value="8538" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/typestate" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1156342245244" />
+                          <option name="revision" value="8487" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/staged-scala" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1153239352056" />
+                          <option name="revision" value="8187" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/ape" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1139574278505" />
+                          <option name="revision" value="5728" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches/old-scala" />
+                        </SvnBranchItem>
+                      </list>
+                    </value>
+                  </entry>
+                  <entry key="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags">
+                    <value>
+                      <list>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1231421566832" />
+                          <option name="revision" value="16872" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_3_RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1230037118235" />
+                          <option name="revision" value="16823" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_3_RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1226268572933" />
+                          <option name="revision" value="16530" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225577892279" />
+                          <option name="revision" value="16480" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225367857342" />
+                          <option name="revision" value="16435" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC5" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1225119477029" />
+                          <option name="revision" value="16373" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC4" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1223635372208" />
+                          <option name="revision" value="16232" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1221829536529" />
+                          <option name="revision" value="16148" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1219238740812" />
+                          <option name="revision" value="15867" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_2_RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1209989776237" />
+                          <option name="revision" value="14911" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_1_final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1208899234348" />
+                          <option name="revision" value="14793" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_1_RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1207845666631" />
+                          <option name="revision" value="14619" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_1_RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1204881724315" />
+                          <option name="revision" value="14314" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1204279668696" />
+                          <option name="revision" value="14216" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-RC3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1202999233257" />
+                          <option name="revision" value="14000" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1202403244489" />
+                          <option name="revision" value="13929" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_7_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1198074965911" />
+                          <option name="revision" value="13605" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_1-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1197637823188" />
+                          <option name="revision" value="13552" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_1-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1196435533102" />
+                          <option name="revision" value="13396" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_1-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189538057378" />
+                          <option name="revision" value="12859" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1189002926325" />
+                          <option name="revision" value="12810" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-RC3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1188828108613" />
+                          <option name="revision" value="12768" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1185548231248" />
+                          <option name="revision" value="12454" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_6_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181743256442" />
+                          <option name="revision" value="12016" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_1-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1181060054894" />
+                          <option name="revision" value="11921" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_1-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1179757314562" />
+                          <option name="revision" value="11122" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1178887127917" />
+                          <option name="revision" value="11009" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1178116502004" />
+                          <option name="revision" value="10939" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_5_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1174495986723" />
+                          <option name="revision" value="10433" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_4_0-final" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1174066168422" />
+                          <option name="revision" value="10386" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_4_0-RC2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1173452814773" />
+                          <option name="revision" value="10291" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_4_0-RC1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1171984673239" />
+                          <option name="revision" value="10054" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_3_10048" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1169767062401" />
+                          <option name="revision" value="9749" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1169579945413" />
+                          <option name="revision" value="9699" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1165431112806" />
+                          <option name="revision" value="9479" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1164302060008" />
+                          <option name="revision" value="9340" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_3_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1163759795167" />
+                          <option name="revision" value="9285" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0_9278" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1162818772041" />
+                          <option name="revision" value="9154" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0_9153" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1161687822963" />
+                          <option name="revision" value="9028" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0_9025" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1160573945985" />
+                          <option name="revision" value="8933" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_2_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1156338855539" />
+                          <option name="revision" value="8479" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_8" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1154099800448" />
+                          <option name="revision" value="8284" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_7_patch8283" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1153336113043" />
+                          <option name="revision" value="8209" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_7" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1150469198848" />
+                          <option name="revision" value="7889" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1148491824332" />
+                          <option name="revision" value="7591" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_5" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1146486546009" />
+                          <option name="revision" value="7299" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_4" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1144939316350" />
+                          <option name="revision" value="7140" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1143831697396" />
+                          <option name="revision" value="7021" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_2" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1143630923057" />
+                          <option name="revision" value="6966" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_1" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1142614219544" />
+                          <option name="revision" value="6828" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_1_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1142205516228" />
+                          <option name="revision" value="6723" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_2_0_0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1137666255340" />
+                          <option name="revision" value="5579" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_1_4_0_4" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1132146448000" />
+                          <option name="revision" value="4928" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/R_1_4_0_3" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1077010311000" />
+                          <option name="revision" value="2598" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/release-1_1_0-b0" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1074610927000" />
+                          <option name="revision" value="2427" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/release-1_0_0-b6" />
+                        </SvnBranchItem>
+                        <SvnBranchItem>
+                          <option name="creationDateMillis" value="1074534383000" />
+                          <option name="revision" value="2409" />
+                          <option name="url" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags/release-1_0_0-b5" />
+                        </SvnBranchItem>
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+              <option name="branchUrls">
+                <list>
+                  <option value="https://lampsvn.epfl.ch/svn-repos/scala/scala/branches" />
+                  <option value="https://lampsvn.epfl.ch/svn-repos/scala/scala/tags" />
+                </list>
+              </option>
+              <option name="trunkUrl" value="https://lampsvn.epfl.ch/svn-repos/scala/scala/trunk" />
+            </SvnBranchConfiguration>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="myVersion" value="124" />
+    <option name="mySupportsUserInfoFilter" value="true" />
+  </component>
+  <component name="VcsDirectoryMappings">
+    <mapping directory="" vcs="svn" />
+  </component>
+  <component name="WebServicesPlugin" addRequiredLibraries="true" />
+  <component name="libraryTable">
+    <library name="ant">
+      <CLASSES>
+        <root url="jar://$PROJECT_DIR$/lib/ant/ant-contrib.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/ant/vizant.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/ant/maven-ant-tasks-2.0.9.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/ant/ant-dotnet-1.0.jar!/" />
+      </CLASSES>
+      <JAVADOC />
+      <SOURCES />
+    </library>
+    <library name="lib">
+      <CLASSES>
+        <root url="jar://$PROJECT_DIR$/test/files/lib/enums.jar!/" />
+        <root url="jar://$PROJECT_DIR$/test/files/lib/ScalaCheck.jar!/" />
+        <root url="jar://$PROJECT_DIR$/test/files/lib/nest.jar!/" />
+        <root url="jar://$PROJECT_DIR$/test/files/lib/genericNest.jar!/" />
+        <root url="jar://$PROJECT_DIR$/test/files/lib/annotations.jar!/" />
+        <root url="jar://$PROJECT_DIR$/test/files/lib/methvsfield.jar!/" />
+      </CLASSES>
+      <JAVADOC />
+      <SOURCES />
+    </library>
+    <library name="lib1">
+      <CLASSES>
+        <root url="jar://$PROJECT_DIR$/lib/scala-library.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/jline.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/scala-compiler.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/midpapi10.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/fjbg.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/ScalaCheckHelper.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/msil.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/cldcapi10.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/ScalaCheck.jar!/" />
+        <root url="jar://$PROJECT_DIR$/lib/scala-library-src.jar!/" />
+      </CLASSES>
+      <JAVADOC />
+      <SOURCES />
+    </library>
+  </component>
+</project>
+

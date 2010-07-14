@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -50,7 +50,7 @@ class VirtualFile(val name: String, _path: String) extends AbstractFile {
   /** Returns null. */
   final def file: File = null
   
-  override def size: Option[Int] = Some(content.size)
+  override def sizeOption: Option[Int] = Some(content.size)
   
   def input : InputStream = new ByteArrayInputStream(content);
   

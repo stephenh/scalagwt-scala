@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -44,8 +44,11 @@ trait Definitions {
     var NullClass: Symbol = _
     var NothingClass: Symbol = _
     var SingletonClass: Symbol = _
+    lazy val uncheckedStableClass = getClass("scala.annotation.unchecked.uncheckedStable") 
+    lazy val uncheckedVarianceClass = getClass("scala.annotation.unchecked.uncheckedVariance") 
 
     lazy val ClassClass: Symbol = getClass(sn.Class)
+      def Class_getMethod = getMember(ClassClass, nme.getMethod_)
     lazy val StringClass: Symbol = getClass(sn.String)
     lazy val ThrowableClass: Symbol = getClass(sn.Throwable)
     lazy val NullPointerExceptionClass: Symbol = getClass(sn.NPException)
@@ -90,6 +93,8 @@ trait Definitions {
     lazy val TypeConstraintClass: Symbol = getClass("scala.TypeConstraint")
     lazy val ManifestClass: Symbol = getClass("scala.reflect.Manifest")
     lazy val ManifestModule: Symbol = getModule("scala.reflect.Manifest")
+    lazy val OptManifestClass: Symbol = getClass("scala.reflect.OptManifest")
+    lazy val NoManifest: Symbol = getModule("scala.reflect.NoManifest")
 
     var CodeClass: Symbol = _
     var CodeModule: Symbol = _
@@ -117,6 +122,11 @@ trait Definitions {
     lazy val ArrayModule: Symbol = getModule("scala.Array")
       def ArrayModule_apply = getMember(ArrayModule, nme.apply)
     lazy val SerializableClass: Symbol = getClass(sn.Serializable)
+    lazy val MethodClass: Symbol = getClass(sn.MethodAsObject)
+    lazy val MethodCacheClass: Symbol = getClass("scala.runtime.MethodCache")
+      def methodCache_find = getMember(MethodCacheClass, nme.find_)
+      def methodCache_add = getMember(MethodCacheClass, nme.add_)
+    lazy val EmptyMethodCacheClass: Symbol = getClass("scala.runtime.EmptyMethodCache")
     lazy val PredefModule: Symbol = getModule("scala.Predef")
       def Predef_classOf = getMember(PredefModule, nme.classOf)
       def Predef_classOfType(classType: Type): Type =
@@ -365,10 +375,17 @@ trait Definitions {
     private def newCovariantPolyClass(owner: Symbol, name: Name, parent: Symbol => Type): Symbol = {
       val clazz = newClass(owner, name, List())
       val tparam = newTypeParam(clazz, 0) setFlag COVARIANT
+      val p = parent(tparam)
+/*      p.typeSymbol.initialize
+      println(p.typeSymbol + " flags: " + Flags.flagsToString(p.typeSymbol.flags))
+      val parents = /*if (p.typeSymbol.isTrait)
+        List(definitions.AnyRefClass.tpe, p) 
+                    else*/ List(p)
+      println("creating " + name + " with parents " + parents) */
       clazz.setInfo(
         PolyType(
           List(tparam),
-          ClassInfoType(List(parent(tparam)), newClassScope(clazz), clazz)))
+          ClassInfoType(List(p), newClassScope(clazz), clazz)))
     }
 
     private def newAlias(owner: Symbol, name: Name, alias: Type): Symbol = {
@@ -652,9 +669,9 @@ trait Definitions {
       RootClass.info.decls.enter(RootPackage)
 
       AnyClass = newClass(ScalaPackageClass, nme.Any, List()).setFlag(ABSTRACT)
-      val anyparam = List(AnyClass.typeConstructor)
+      val any = List(AnyClass.typeConstructor)
 
-      AnyValClass = newClass(ScalaPackageClass, nme.AnyVal, anyparam)
+      AnyValClass = newClass(ScalaPackageClass, nme.AnyVal, any)
         .setFlag(FINAL | SEALED)
       AnyRefClass =
         newAlias(ScalaPackageClass, nme.AnyRef, ObjectClass.typeConstructor)
@@ -662,10 +679,10 @@ trait Definitions {
       NullClass = newClass(ScalaPackageClass, nme.Null, anyrefparam)
         .setFlag(ABSTRACT | TRAIT | FINAL)
 
-      NothingClass = newClass(ScalaPackageClass, nme.Nothing, anyparam)
+      NothingClass = newClass(ScalaPackageClass, nme.Nothing, any)
         .setFlag(ABSTRACT | TRAIT | FINAL)
 
-      SingletonClass = newClass(ScalaPackageClass, nme.Singleton, anyparam)
+      SingletonClass = newClass(ScalaPackageClass, nme.Singleton, any)
         .setFlag(ABSTRACT | TRAIT | FINAL)
 
       UnitClass =
@@ -718,9 +735,9 @@ trait Definitions {
       val booltype = BooleanClass.typeConstructor
 
       // members of class scala.Any
-      Any_== = newMethod(AnyClass, nme.EQ, anyparam, booltype) setFlag FINAL
-      Any_!= = newMethod(AnyClass, nme.NE, anyparam, booltype) setFlag FINAL
-      Any_equals = newMethod(AnyClass, nme.equals_, anyparam, booltype)
+      Any_== = newMethod(AnyClass, nme.EQ, any, booltype) setFlag FINAL
+      Any_!= = newMethod(AnyClass, nme.NE, any, booltype) setFlag FINAL
+      Any_equals = newMethod(AnyClass, nme.equals_, any, booltype)
       Any_hashCode = newMethod(
         AnyClass, nme.hashCode_, List(), IntClass.typeConstructor)
       Any_toString = newMethod(
@@ -751,7 +768,7 @@ trait Definitions {
         ObjectClass, "$asInstanceOf",
         tparam => MethodType(List(), tparam.typeConstructor)) setFlag FINAL
       String_+ = newMethod(
-        StringClass, "+", anyparam, StringClass.typeConstructor) setFlag FINAL
+        StringClass, "+", any, StringClass.typeConstructor) setFlag FINAL
 
       PatternWildcard = NoSymbol.newValue(NoPosition, "_").setInfo(NothingClass.typeConstructor)
 

@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2007-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2007-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -15,6 +15,12 @@ import java.util.regex.{Pattern, Matcher}
 
 /** This class provides methods for creating and using regular expressions.
  *  It is based on the regular expressions of the JDK since 1.4.
+ *
+ *  <p>
+ *  You can use special pattern syntax construct <code>(?idmsux-idmsux)</code> to switch
+ *  various regex compilation options like <code>CASE_INSENSITIVE</code> or <code>UNICODE_CASE</code>.
+ *  See <code>java.util.regex.Pattern</code> javadoc for details.
+ *  </p>
  *
  *  @author  Thibaud Hottelier
  *  @author  Philipp Haller

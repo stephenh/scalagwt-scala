@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2002-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -21,15 +21,15 @@ import collection.mutable.ArrayBuffer
  *  @author  Martin Odersky, Stephane Micheloud
  *  @version 1.0
  */
-abstract class BoxedArray extends Array.Array0[Any] {
+abstract class BoxedArray[A] extends Array.Array0[A] {
   /** The length of the array */
   def length: Int
 
   /** The element at given index */
-  def apply(index: Int): Any
+  def apply(index: Int): A
 
   /** Update element at given index */
-  def update(index: Int, elem: Any): Unit
+  def update(index: Int, elem: A): Unit
 
   /** Convert to Java array.
    *  @param elemTag    Either one of the tags ".N" where N is the name of a primitive type
@@ -42,11 +42,12 @@ abstract class BoxedArray extends Array.Array0[Any] {
 
   override def isDefinedAt(x: Int): Boolean = 0 <= x && x < length
 
-  override def elements = new Iterator[Any] {
+  @serializable protected class AnyIterator extends Iterator[A] {
     var index = 0
     def hasNext: Boolean = index < length
-    def next(): Any = { val i = index; index = i + 1; apply(i) }
+    def next(): A = { val i = index; index = i + 1; apply(i) }
   }
+  override def elements = new AnyIterator
 
   /** The underlying array value
    */
@@ -74,7 +75,7 @@ abstract class BoxedArray extends Array.Array0[Any] {
   // todo: eliminate
   def subArray(from: Int, end: Int): AnyRef
 
-  final override def map[b](f: Any => b): Array[b] = {
+  final override def map[b](f: A => b): Array[b] = {
     val len = length
     val result = new Array[b](len)
     var i = 0
@@ -85,7 +86,7 @@ abstract class BoxedArray extends Array.Array0[Any] {
     result
   }
 
-  final override def flatMap[b](f: Any => Iterable[b]): Array[b] = {
+  final override def flatMap[b](f: A => Iterable[b]): Array[b] = {
     val buf = new ArrayBuffer[b]
     val len = length
     var i = 0
@@ -96,11 +97,11 @@ abstract class BoxedArray extends Array.Array0[Any] {
     buf.toArray
   }
   
-  final override def ++[b >: Any](that: Iterable[b]): Array[b] = super.++(that).toArray
+  final override def ++[b >: A](that: Iterable[b]): Array[b] = super.++(that).toArray
 
-  final def zip[b](that: Array[b]): Array[(Any,b)] = {
+  final def zip[b](that: Array[b]): Array[(A,b)] = {
     val len = this.length min that.length
-    val result = new Array[(Any,b)](len)
+    val result = new Array[(A,b)](len)
     var i = 0
     while (i < len) {
       result(i) = (this(i), that(i))
@@ -109,9 +110,9 @@ abstract class BoxedArray extends Array.Array0[Any] {
     result
   }
   
-  final def zipWithIndex: Array[(Any,Int)] = {
+  final def zipWithIndex: Array[(A,Int)] = {
     val len = length
-    val result = new Array[(Any,Int)](len)
+    val result = new Array[(A,Int)](len)
     var i = 0
     while (i < len) {
       result(i) = (this(i), i)
@@ -123,14 +124,14 @@ abstract class BoxedArray extends Array.Array0[Any] {
   /** Returns an array that contains all indices of this array */
   def indices: Array[Int] = Array.range(0, length)
 
-  final def deepToString() = deepMkString(stringPrefix + "(", ",", ")")
+  final def deepToString() = deepMkString(stringPrefix + "(", ", ", ")")
 
   final def deepMkString(start: String, sep: String, end: String): String = {
     def _deepToString(x: Any) = x match {
       case a: AnyRef if ScalaRunTime.isArray(a) =>
         ScalaRunTime.boxArray(a).deepMkString(start, sep, end)
       case _ =>
-        x.toString
+        ScalaRunTime.stringOf(x)
     }
     val buf = new StringBuilder()
     buf.append(start)
@@ -147,7 +148,7 @@ abstract class BoxedArray extends Array.Array0[Any] {
 
   final def deepEquals(that: Any): Boolean = {
     def _deepEquals(x1: Any, x2: Any) = (x1, x2) match {
-      case (a1: BoxedArray, a2: BoxedArray) =>
+      case (a1: BoxedArray[_], a2: BoxedArray[_]) =>
         _sameElements(a1, a2)
       case (a1: AnyRef, a2: AnyRef)
            if ScalaRunTime.isArray(a1) && ScalaRunTime.isArray(a2) =>
@@ -155,7 +156,7 @@ abstract class BoxedArray extends Array.Array0[Any] {
       case _ =>
         x1.equals(x2)
     }
-    def _sameElements(a1: BoxedArray, a2: BoxedArray): Boolean = {
+    def _sameElements(a1: BoxedArray[_], a2: BoxedArray[_]): Boolean = {
       val it1 = a1.elements
       val it2 = a2.elements
       var res = true
@@ -164,7 +165,7 @@ abstract class BoxedArray extends Array.Array0[Any] {
       !it1.hasNext && !it2.hasNext && res
     }
     that match {
-      case a: BoxedArray =>
+      case a: BoxedArray[_] =>
         _sameElements(this, a)
       case a: AnyRef if ScalaRunTime.isArray(a) =>
         _sameElements(this, ScalaRunTime.boxArray(a))
@@ -174,13 +175,13 @@ abstract class BoxedArray extends Array.Array0[Any] {
   }
   override final def stringPrefix: String = "Array"
     
-  protected def newArray(length : Int, elements : Iterator[Any]) : BoxedArray
-  override def projection : scala.Array.Projection[Any] = new scala.Array.Projection[Any] {
-    def update(idx : Int, what : Any) : Unit = BoxedArray.this.update(idx, what)
+  protected def newArray(length : Int, elements : Iterator[A]) : BoxedArray[A]
+  override def projection : scala.Array.Projection[A] = new scala.Array.Projection[A] {
+    def update(idx : Int, what : A) : Unit = BoxedArray.this.update(idx, what)
     def length = BoxedArray.this.length
     def apply(idx : Int) = BoxedArray.this.apply(idx)
     override def stringPrefix = "ArrayP"
-    protected def newArray[B >: Any](length : Int, elements : Iterator[Any]) = 
+    protected def newArray[B >: A](length : Int, elements : Iterator[A]) = 
       BoxedArray.this.newArray(length, elements).asInstanceOf[Array[B]]
   }
 }

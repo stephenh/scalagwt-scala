@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -622,14 +622,10 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
         code.print(" + \"" + prettyName + ": " + 
 	           string2code(req.typeOf(vname)) +
 	           " = \" + " +
-                   " (if(" +
+                   " { val tmp = scala.runtime.ScalaRunTime.stringOf(" +
 	           req.fullPath(vname) + 
-                   ".asInstanceOf[AnyRef] != null) " +
-                   " ((if(" + 
-	           req.fullPath(vname) + 
-	           ".toString().contains('\\n')) " +
-                   " \"\\n\" else \"\") + " +
-                   req.fullPath(vname) + ".toString() + \"\\n\") else \"null\\n\") ")
+		   "); " +
+                   " (if(tmp.toSeq.contains('\\n')) \"\\n\" else \"\") + tmp + \"\\n\"} ")
       }
     }
   }

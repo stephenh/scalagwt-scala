@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2002-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -31,6 +31,13 @@ trait Product extends AnyRef {
   /** return k for a product <code>A(x_1,...,x_k)</code>
    */
   def productArity: Int
+
+  def productElements: Iterator[Any] = new Iterator[Any] {
+    private var c: Int = 0
+    private val cmax = productArity
+    def hasNext = c < cmax
+    def next() = { val result = productElement(c); c += 1; result }
+  }
 
   /** 
    *  By default the empty string. Implementations may override this

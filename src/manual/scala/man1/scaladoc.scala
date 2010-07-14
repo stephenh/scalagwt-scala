@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Stephane Micheloud
  */
 //$Id$
@@ -126,8 +126,7 @@ object scaladoc extends Command {
     Link(Bold("fsc") & "(1)", "fsc.html") & ", " &
     Link(Bold("sbaz") & "(1)", "sbaz.html") & ", " &
     Link(Bold("scala") & "(1)", "scala.html") & ", " &
-    Link(Bold("scalac") & "(1)", "scalac.html") & ", " &
-    Link(Bold("scalap") & "(1)", "scalap.html"))
+    Link(Bold("scalac") & "(1)", "scalac.html"))
 
   def manpage = new Document {
     title = command

@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -31,6 +31,8 @@ abstract class Phase(val prev: Phase) {
 
   def name: String
   def description: String = name
+  // Will running with -Ycheck:name work? 
+  def checkable: Boolean = true
   def devirtualized: Boolean = false
   def erasedTypes: Boolean = false
   def flatClasses: Boolean = false

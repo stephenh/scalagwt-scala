@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala Ant Tasks                      **
-**    / __/ __// _ | / /  / _ |    (c) 2005-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2005-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -49,11 +49,7 @@ class FastScalac extends Scalac {
    *  @param input The value for <code>server</code>.
    */
   def setServer(input: String): Unit = {
-    def isHostNameValid(host: String): Boolean =
-      try { val _ = java.net.InetAddress.getByName(host); true }
-      catch { case _ => false }
-    if (isHostNameValid(input)) serverAddr = Some(input)
-    else error("Unknown server '" + input + "'")
+    serverAddr = Some(input)
   }
 
   /** Sets the <code>shutdown</code> attribute. Used by Ant.
@@ -69,9 +65,9 @@ class FastScalac extends Scalac {
 
   /** Performs the compilation. */
   override def execute() = {
-    val Pair(settings, sourceFiles) = initialize
+    val (settings, sourceFiles, javaOnly) = initialize
 
-    if (!sourceFiles.isEmpty) {
+    if (!sourceFiles.isEmpty && !javaOnly) {
       def trim(xs: List[String]) = xs filter (x => x.length > 0)
       val reset = settings.BooleanSetting("-reset", "Reset compile server caches")
       val shutdown = settings.BooleanSetting("-shutdown", "Shutdown compile server")

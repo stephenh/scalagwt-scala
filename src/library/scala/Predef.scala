@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2002-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -186,6 +186,7 @@ object Predef {
   implicit def doubleWrapper(x: Double) = new runtime.RichDouble(x)
 
   implicit def booleanWrapper(x: Boolean)  = new runtime.RichBoolean(x)
+  implicit def unitWrapper(x: Boolean)  = new runtime.RichUnit
 
   implicit def stringWrapper(x: String) = new runtime.RichString(x)
   implicit def stringBuilderWrapper(x : StringBuilder): runtime.RichStringBuilder = new runtime.RichStringBuilder(x)

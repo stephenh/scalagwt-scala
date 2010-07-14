@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Stepan Koltsov
  */
 // $Id$
@@ -16,7 +16,7 @@ class SimpleReader(
 extends InteractiveReader {
   def this() = this(Console.in, new PrintWriter(Console.out), true)
 
-  def readLine(prompt: String) = {
+  def readOneLine(prompt: String) = {
     if (interactive) {
       out.print(prompt)
       out.flush()

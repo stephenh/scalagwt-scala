@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 // $Id$
@@ -45,9 +45,14 @@ trait Trees {
 
   // modifiers --------------------------------------------------------
 
+  /** @param privateWithin   the qualifier for a private (a type name)
+   *                         or nme.EMPTY.toTypeName, if none is given.
+   *  @param annotations     the annotations for the definition 
+   *                         (i.e things starting with @)  
+   */  
   case class Modifiers(flags: Long, privateWithin: Name, annotations: List[Annotation]) {
-    def isCovariant     = hasFlag(COVARIANT    )
-    def isContravariant = hasFlag(CONTRAVARIANT)
+    def isCovariant     = hasFlag(COVARIANT    )  // marked with `+'
+    def isContravariant = hasFlag(CONTRAVARIANT)  // marked with `-'
     def isPrivate   = hasFlag(PRIVATE  )
     def isProtected = hasFlag(PROTECTED)
     def isVariable  = hasFlag(MUTABLE  )
@@ -101,7 +106,10 @@ trait Trees {
 
     def pos = rawpos
 
-    var tpe: Type = _
+    private[this] var rawtpe: Type = _
+
+    def tpe = rawtpe
+    def tpe_=(t: Type) = rawtpe = t
 
     def setPos(pos: Position): this.type = { rawpos = pos; this }
     def setType(tp: Type): this.type = { 
@@ -285,7 +293,9 @@ trait Trees {
 
   /** The empty tree */
   case object EmptyTree extends TermTree {
-    tpe = NoType
+    super.tpe_=(NoType)
+    override def tpe_=(t: Type) = 
+      if (t != NoType) throw new Error("tpe_=("+t+") inapplicable for <empty>")
     override def isEmpty = true
   }
 
@@ -327,7 +337,6 @@ trait Trees {
    */
   def ClassDef(sym: Symbol, impl: Template): ClassDef =
     posAssigner.atPos(sym.pos) {
-      var flags = sym.flags
       ClassDef(Modifiers(sym.flags),
                sym.name,
                sym.typeParams map TypeDef,
@@ -498,7 +507,9 @@ trait Trees {
    *  @param selectors
    */
   case class Import(expr: Tree, selectors: List[(Name, Name)])
-       extends SymTree
+       extends SymTree 
+    // The symbol of an Import is an import symbol @see Symbol.newImport
+    // It's used primarily as a marker to check that the import has been typechecked.
 
   /** Annotation application (constructor arguments + name-value pairs) */
   case class Annotation(constr: Tree, elements: List[Tree])
@@ -515,29 +526,52 @@ trait Trees {
     override def isType = definition.isType
   }
 
-  /** Instantiation template
+  /** Instantiation template of a class or trait
    *
    *  @param parents
    *  @param body
    */
   case class Template(parents: List[Tree], self: ValDef, body: List[Tree])
        extends SymTree {
+    // the symbol of a template is a local dummy. @see Symbol.newLocalDummy
+    // the owner of the local dummy is the enclosing trait or class.
+    // the local dummy is itself the owner of any local blocks
+    // For example:
+    //
+    // class C { 
+    //   def foo // owner is C 
+    //   { 
+    //      def bar  // owner is local dummy
+    //   }
     // System.err.println("TEMPLATE: " + parents)
   }
 
-  /**
-   *  @param parents     ...
-   *  @param vparamss    ...
-   *  @param argss       ...
-   *  @param body        ...
-   *  @return            ...
+  /** Generates a template with constructor corresponding to 
+   *
+   *  constrmods (vparams1_) ... (vparams_n) preSuper { presupers }
+   *  extends superclass(args_1) ... (args_n) with mixins { self => body }
+   *
+   *  This gets translated to
+   *
+   *  extends superclass with mixins { self =>
+   *    presupers' // presupers without rhs
+   *    vparamss   // abstract fields corresponding to value parameters
+   *    def <init>(vparamss) { 
+   *      presupers
+   *      super.<init>(args)
+   *    }
+   *    body
+   *  }
    */
   def Template(parents: List[Tree], self: ValDef, constrMods: Modifiers, vparamss: List[List[ValDef]], argss: List[List[Tree]], body: List[Tree]): Template = {
-    /** Add constructor to template */
+    /* Add constructor to template */
+    
+    // create parameters for <init>
     var vparamss1 = 
       vparamss map (vps => vps.map { vd =>
-        val ret = ValDef(Modifiers(vd.mods.flags & IMPLICIT | PARAM) withAnnotations vd.mods.annotations,
-            vd.name, vd.tpt.duplicate, EmptyTree).setPos(vd.pos)
+        val ret = ValDef(
+          Modifiers(vd.mods.flags & IMPLICIT | PARAM) withAnnotations vd.mods.annotations,
+          vd.name, vd.tpt.duplicate, EmptyTree).setPos(vd.pos)
         if (inIDE && vd.symbol != NoSymbol) 
           ret.symbol = vd.symbol
         ret
@@ -556,6 +590,7 @@ trait Trees {
         else List(
           DefDef(NoMods, nme.MIXIN_CONSTRUCTOR, List(), List(List()), TypeTree(), Block(lvdefs, Literal(()))))
       } else {
+        // convert (implicit ... ) to ()(implicit ... ) if its the only parameter section
         if (vparamss1.isEmpty ||
             !vparamss1.head.isEmpty && (vparamss1.head.head.mods.flags & IMPLICIT) != 0) 
           vparamss1 = List() :: vparamss1;
@@ -620,7 +655,9 @@ trait Trees {
 
   /** Anonymous function, eliminated by analyzer */
   case class Function(vparams: List[ValDef], body: Tree)
-       extends TermTree with SymTree
+       extends TermTree with SymTree 
+    // The symbol of a Function is a synthetic value of name nme.ANON_FUN_NAME
+    // It is the owner of the function's parameters.
 
   /** Assignment */
   case class Assign(lhs: Tree, rhs: Tree)
@@ -652,6 +689,7 @@ trait Trees {
   /** Return expression */
   case class Return(expr: Tree)
        extends TermTree with SymTree
+    // The symbol of a Return node is the enclosing method.
 
   case class Try(block: Tree, catches: List[CaseDef], finalizer: Tree)
        extends TermTree
@@ -671,6 +709,8 @@ trait Trees {
   }
 
   /** Factory method for object creation <code>&lt;new tpt(args_1)...(args_n)&gt;</code>.
+   *  A New(t, as) is expanded to:
+   *    (new t).<init>(as)
    *
    *  @param tpt   ...
    *  @param argss ...
@@ -686,6 +726,8 @@ trait Trees {
   case class Typed(expr: Tree, tpt: Tree)
        extends TermTree
 
+  // Martin to Sean: Should GenericApply/TypeApply/Apply not be SymTree's? After all, 
+  // ApplyDynamic is a SymTree.
   abstract class GenericApply extends TermTree {
     val fun: Tree
     val args: List[Tree]
@@ -713,20 +755,25 @@ trait Trees {
    */
   case class ApplyDynamic(qual: Tree, args: List[Tree]) 
        extends TermTree with SymTree
+    // The symbol of an ApplyDynamic is the function symbol of `qual', or NoSymbol, if there is none.
 
   /** Super reference */
   case class Super(qual: Name, mix: Name)
        extends TermTree with SymTree
+    // The symbol of a Super is the class _from_ which the super reference is made.
+    // For instance in C.super(...), it would be C.
 
   def Super(sym: Symbol, mix: Name): Tree = Super(sym.name, mix) setSymbol sym
 
   /** Self reference */
   case class This(qual: Name)
         extends TermTree with SymTree
+    // The symbol of a This is the class to which the this refers.
+    // For instance in C.this, it would be C.
 
   def This(sym: Symbol): Tree = This(sym.name) setSymbol sym
 
-  /** Designator */
+  /** Designator <qualifier> . <selector> */
   case class Select(qualifier: Tree, selector: Name)
        extends SymTree {
     override def isTerm = selector.isTermName
@@ -736,7 +783,7 @@ trait Trees {
   def Select(qualifier: Tree, sym: Symbol): Select =
     Select(qualifier, sym.name) setSymbol sym
 
-  /** Identifier */
+  /** Identifier <name> */
   case class Ident(name: Name)
        extends SymTree {
     override def isTerm = name.isTermName
@@ -788,15 +835,15 @@ trait Trees {
   case class SingletonTypeTree(ref: Tree)
         extends TypTree
 
-  /** Type selection, eliminated by RefCheck */
+  /** Type selection <qualifier> # <selector>, eliminated by RefCheck */
   case class SelectFromTypeTree(qualifier: Tree, selector: Name)
        extends TypTree with SymTree
 
-  /** Intersection type, eliminated by RefCheck */
+  /** Intersection type <parent1> with ... with <parentN> { <decls> }, eliminated by RefCheck */
   case class CompoundTypeTree(templ: Template)
        extends TypTree
 
-  /** Applied type, eliminated by RefCheck */
+  /** Applied type <tpt> [ <args> ], eliminated by RefCheck */
   case class AppliedTypeTree(tpt: Tree, args: List[Tree])
        extends TypTree {
     override def symbol: Symbol = tpt.symbol
@@ -813,30 +860,45 @@ trait Trees {
     def underlying : AnyRef
     override def equalsStructure0(that: Tree)(f : (Tree,Tree) => Boolean): Boolean = this eq that
   }
-/* A standard pattern match
+
+/* A standard pattern match 
   case EmptyTree =>
   case PackageDef(name, stats) =>
      // package name { stats }
   case ClassDef(mods, name, tparams, impl) =>
-     // mods class name[tparams] impl
+     // mods class name [tparams] impl   where impl = extends parents { defs }
   case ModuleDef(mods, name, impl) =>                             (eliminated by refcheck)
      // mods object name impl  where impl = extends parents { defs }
   case ValDef(mods, name, tpt, rhs) =>
-     // mods val name: tpt = rhs
+     // mods val name: tpt = rhs   
+     // note missing type information is expressed by tpt = TypeTree()
   case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
-     // mods def name[tparams](vparams): tpt = rhs
+     // mods def name[tparams](vparams_1)...(vparams_n): tpt = rhs
+     // note missing type information is expressed by tpt = TypeTree()
   case TypeDef(mods, name, tparams, rhs) =>                       (eliminated by erasure)
      // mods type name[tparams] = rhs
+     // mods type name[tparams] >: lo <: hi,  where lo, hi are in a TypeBoundsTree, 
+                                              and DEFERRED is set in mods
   case LabelDef(name, params, rhs) =>
      // used for tailcalls and like
+     // while/do are desugared to label defs as follows:
+     // while (cond) body ==> LabelDef($L, List(), if (cond) { body; L$() } else ())
+     // do body while (cond) ==> LabelDef($L, List(), body; if (cond) L$() else ())
   case Import(expr, selectors) =>                                 (eliminated by typecheck)
      // import expr.{selectors}
+     // Selectors are a list of pairs of names (from, to).
+     // The last (and maybe only name) may be a nme.WILDCARD
+     // for instance
+     //   import qual.{x, y => z, _}  would be represented as
+     //   Import(qual, List(("x", "x"), ("y", "z"), (WILDCARD, null)))
   case Annotation(constr, elements) =>                            
-     // @constr(elements) where constr = tp(args), elements = { val x1 = c1, ..., val xn = cn }
+     // @constr(elements) where constr = tp(args),   (an instance of Apply)
+     //                         elements = { val x1 = c1, ..., val xn = cn }
   case DocDef(comment, definition) =>                             (eliminated by typecheck)
      // /** comment */ definition
   case Template(parents, self, body) =>
      // extends parents { self => body }
+     // if self is missing it is represented as emptyValDef
   case Block(stats, expr) =>
      // { stats; expr }
   case CaseDef(pat, guard, body) =>                               (eliminated by transmatch/explicitouter)
@@ -853,6 +915,11 @@ trait Trees {
     // used for unapply's
   case ArrayValue(elemtpt, trees) =>                              (introduced by uncurry)
     // used to pass arguments to vararg arguments
+    // for instance, printf("%s%d", foo, 42) is translated to after uncurry to:
+    // Apply(
+    //   Ident("printf"), 
+    //   Literal("%s%d"), 
+    //   ArrayValue(<Any>, List(Ident("foo"), Literal(42))))
   case Function(vparams, body) =>                                 (eliminated by lambdaLift)
     // vparams => body  where vparams:List[ValDef]
   case Assign(lhs, rhs) =>
@@ -868,27 +935,30 @@ trait Trees {
   case Throw(expr) =>
     // throw expr
   case New(tpt) =>
-    // new tpt   always in the context: new tpt.<init>[targs](args)
+    // new tpt   always in the context: (new tpt).<init>[targs](args)
   case Typed(expr, tpt) =>                                        (eliminated by erasure)
     // expr: tpt
   case TypeApply(fun, args) =>
     // fun[args]
   case Apply(fun, args) =>
     // fun(args)
+    // for instance fun[targs](args)  is expressed as  Apply(TypeApply(fun, targs), args)
   case ApplyDynamic(qual, args)                                   (introduced by erasure, eliminated by cleanup)
     // fun(args)
   case Super(qual, mix) =>
-    // qual.super[mix]
+    // qual.super[mix]     if qual and/or mix is empty, ther are nme.EMPTY.toTypeName
   case This(qual) =>
     // qual.this
   case Select(qualifier, selector) =>
     // qualifier.selector
   case Ident(name) =>
     // name
+    // note: type checker converts idents that refer to enclosing fields or methods
+    // to selects; name ==> this.name
   case Literal(value) =>
     // value
   case TypeTree() =>                                              (introduced by refcheck)
-    // a type that's not written out, but given in the attribute
+    // a type that's not written out, but given in the tpe attribute
   case Annotated(annot, arg) =>                                   (eliminated by typer)
     // arg @annot  for types,  arg: @annot for exprs
   case SingletonTypeTree(ref) =>                                  (eliminated by uncurry)
@@ -899,9 +969,10 @@ trait Trees {
     // parent1 with ... with parentN { refinement }
   case AppliedTypeTree(tpt, args) =>                              (eliminated by uncurry)
     // tpt[args]
-  case TypeBoundsTree(lo, hi) =>                                (eliminated by uncurry)
+  case TypeBoundsTree(lo, hi) =>                                  (eliminated by uncurry)
     // >: lo <: hi
-  case ExistentialTypeTree(tpt, whereClauses) =>
+  case ExistentialTypeTree(tpt, whereClauses) =>                  (eliminated by uncurry)
+    // tpt forSome { whereClauses }
 
 */
 

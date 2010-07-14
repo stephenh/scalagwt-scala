@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Iulian Dragos
  */
 // $Id$
@@ -43,6 +43,7 @@ abstract class ICodeReader extends ClassfileParser {
   def readClass(cls: Symbol): (IClass, IClass) = {
     var classFile: AbstractFile = null;
     var sym = cls
+    sym.info // ensure accurate type information
     isScalaModule = cls.isModule && !cls.hasFlag(JAVA)
     log("Reading class: " + cls + " isScalaModule?: " + isScalaModule)
     val name = cls.fullNameString(java.io.File.separatorChar) + (if (sym.hasFlag(MODULE)) "$" else "")
@@ -50,13 +51,11 @@ abstract class ICodeReader extends ClassfileParser {
     if (entry ne null) {
       classFile = entry.classFile
 //      if (isScalaModule)
-        //sym = cls.linkedClassOfModule
+//        sym = cls.linkedClassOfModule
       assert(classFile ne null, "No classfile for " + cls)
 
 //    for (s <- cls.info.members) 
 //      Console.println("" + s + ": " + s.tpe)
-      this.instanceCode = new IClass(sym)
-      this.staticCode   = new IClass(sym.linkedClassOfClass)
       parse(classFile, sym)
     } else
       log("Could not find: " + cls)
@@ -74,13 +73,15 @@ abstract class ICodeReader extends ClassfileParser {
   }
 
   override def parseClass() {
+    this.instanceCode = new IClass(clazz)
+    this.staticCode   = new IClass(staticModule)
     val jflags = in.nextChar
     val isAttribute = (jflags & JAVA_ACC_ANNOTATION) != 0
-    var sflags = transFlags(jflags)
+    var sflags = transFlags(jflags, true)
     if ((sflags & DEFERRED) != 0) sflags = sflags & ~DEFERRED | ABSTRACT
     val c = pool.getClassSymbol(in.nextChar)
-//    if (c != clazz)
-//      throw new IOException("class file '" + in.file + "' contains " + c + "instead of " + clazz)
+
+    parseInnerClasses()
 
     in.skip(2)               // super class
     in.skip(2 * in.nextChar) // interfaces
@@ -134,11 +135,11 @@ abstract class ICodeReader extends ClassfileParser {
     import ch.epfl.lamp.fjbg.JAccessFlags._
     
     var res = 0L
-    if ((flags & ACC_PRIVATE) == 1) res |= Flags.PRIVATE
-    if ((flags & ACC_PROTECTED) == 1) res |= Flags.PROTECTED
-    if ((flags & ACC_FINAL) == 1) res |= Flags.FINAL
-    if ((flags & ACC_ABSTRACT) == 1) res |= Flags.DEFERRED
-    if ((flags & ACC_SYNTHETIC) == 1) res |= Flags.SYNTHETIC
+    if ((flags & ACC_PRIVATE) != 0) res |= Flags.PRIVATE
+    if ((flags & ACC_PROTECTED) != 0) res |= Flags.PROTECTED
+    if ((flags & ACC_FINAL) != 0) res |= Flags.FINAL
+    if ((flags & ACC_ABSTRACT) != 0) res |= Flags.DEFERRED
+    if ((flags & ACC_SYNTHETIC) != 0) res |= Flags.SYNTHETIC
 
     res
   }
@@ -641,7 +642,8 @@ abstract class ICodeReader extends ClassfileParser {
    *  There are two possible classes, the static part and the instance part.
    */
   def getCode(flags: Int): IClass =
-    if ((flags & JAVA_ACC_STATIC) != 0) staticCode else instanceCode
+    if (isScalaModule) staticCode
+    else if ((flags & JAVA_ACC_STATIC) != 0) staticCode else instanceCode
 
   class LinearCode {
     var instrs: ListBuffer[(Int, Instruction)] = new ListBuffer
@@ -652,7 +654,7 @@ abstract class ICodeReader extends ClassfileParser {
     var containsNEW  = false
     
     def emit(i: Instruction) { 
-      instrs += (pc, i)
+      instrs += ((pc, i))
       if (i.isInstanceOf[DupX])
         containsDUPX = true
       if (i.isInstanceOf[opcodes.NEW])

@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 
@@ -430,7 +430,7 @@ trait TypeKinds {
       }
 
     case ConstantType(value) =>
-      toTypeKind(value.tpe)
+      toTypeKind(t.underlying)
 
     case TypeRef(_, sym, args) =>
       primitiveTypeMap get sym match {

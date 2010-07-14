@@ -1,5 +1,5 @@
 /* NSC -- new scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 
@@ -121,6 +121,7 @@ trait Members { self: ICodes =>
     var fields: List[IField] = Nil
     var methods: List[IMethod] = Nil
     var cunit: CompilationUnit = _
+    var bootstrapClass: Option[String] = None
 
     def addField(f: IField): this.type = {
       fields = f :: fields;
@@ -269,7 +270,7 @@ trait Members { self: ICodes =>
             succ.toList foreach { i => bb.emit(i, i.pos) }
             code.removeBlock(succ)
             nextBlock -= bb
-            exh foreach { e => e.covered = e.covered.remove { b1 => b1 == succ } }
+            exh foreach { e => e.covered = e.covered - succ }
           } while (nextBlock.isDefinedAt(succ))
           bb.close
         } else 

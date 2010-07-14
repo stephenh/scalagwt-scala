@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Martin Odersky
  */
 // $Id$
@@ -261,20 +261,24 @@ trait SyntheticMethods { self: Analyzer =>
 
     def addBeanGetterMethod(sym: Symbol) = {
       val getter = beanSetterOrGetter(sym)
-      if (getter != NoSymbol)
+      if (getter != NoSymbol) {
+        clazz.info.decls.enter(getter)
         ts += typer.typed(DefDef(
           getter,
           vparamss => if (sym hasFlag DEFERRED) EmptyTree else gen.mkAttributedRef(sym)))
+      }
     }
 
     def addBeanSetterMethod(sym: Symbol) = {
       val setter = beanSetterOrGetter(sym)
-      if (setter != NoSymbol)
+      if (setter != NoSymbol) {
+        clazz.info.decls.enter(setter)
         ts += typer.typed(DefDef(
           setter,
           vparamss =>
             if (sym hasFlag DEFERRED) EmptyTree 
             else Apply(gen.mkAttributedRef(sym), List(Ident(vparamss.head.head)))))
+      }
     }
 
     def isPublic(sym: Symbol) = 

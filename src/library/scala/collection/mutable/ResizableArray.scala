@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2003-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2003-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -23,7 +23,7 @@ import Predef._
 trait ResizableArray[A] extends RandomAccessSeq[A] {
 
   protected def initialSize: Int = 16
-  protected var array: Array[AnyRef] = new Array[AnyRef](initialSize)
+  protected var array: Array[AnyRef] = new Array[AnyRef](initialSize min 1)
   private var size1: Int = 0
   protected def size0: Int = size1
   protected def size0_=(sz: Int) { size1 = sz }
@@ -74,7 +74,7 @@ trait ResizableArray[A] extends RandomAccessSeq[A] {
   /** ensure that the internal array has at n cells */
   protected def ensureSize(n: Int) {
     if (n > array.length) {
-      var newsize = array.length * 2
+      var newsize = if (array.length == 0) 2 else array.length * 2
       while (n > newsize)
         newsize = newsize * 2
       val newar: Array[AnyRef] = new Array(newsize)

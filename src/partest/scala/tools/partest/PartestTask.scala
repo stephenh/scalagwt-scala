@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala Parallel Testing               **
-**    / __/ __// _ | / /  / _ |    (c) 2007-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2007-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -23,11 +23,20 @@ class PartestTask extends Task {
   def addConfiguredPosTests(input: FileSet): Unit =
     posFiles = Some(input)
 
+  def addConfiguredPos5Tests(input: FileSet): Unit =
+    pos5Files = Some(input)
+
   def addConfiguredNegTests(input: FileSet): Unit =
     negFiles = Some(input)
 
   def addConfiguredRunTests(input: FileSet): Unit =
     runFiles = Some(input)
+
+  def addConfiguredJvmTests(input: FileSet): Unit =
+    jvmFiles = Some(input)
+
+  def addConfiguredJvm5Tests(input: FileSet): Unit =
+    jvm5Files = Some(input)
 
   def addConfiguredResidentTests(input: FileSet): Unit =
     residentFiles = Some(input)
@@ -63,35 +72,61 @@ class PartestTask extends Task {
     
   def setJavaCmd(input: File): Unit =
     javacmd = Some(input)
-    
+
+  def setJavacCmd(input: File): Unit =
+    javaccmd = Some(input)
+
   def setScalacOpts(opts: String): Unit =
     scalacOpts = Some(opts)
 
   def setTimeout(delay: String): Unit =
     timeout = Some(delay)
 
+  def setDebug(input: Boolean): Unit =
+    debug = input
+
   private var classpath: Option[Path] = None
   private var javacmd: Option[File] = None
+  private var javaccmd: Option[File] = None
   private var showDiff: Boolean = false
   private var showLog: Boolean = false
   private var runFailed: Boolean = false
   private var posFiles: Option[FileSet] = None
+  private var pos5Files: Option[FileSet] = None
   private var negFiles: Option[FileSet] = None
   private var runFiles: Option[FileSet] = None
+  private var jvmFiles: Option[FileSet] = None
+  private var jvm5Files: Option[FileSet] = None
   private var residentFiles: Option[FileSet] = None
   private var scriptFiles: Option[FileSet] = None
   private var shootoutFiles: Option[FileSet] = None
   private var errorOnFailed: Boolean = false
   private var scalacOpts: Option[String] = None
   private var timeout: Option[String] = None
+  private var debug = false
 
-  private def getPosFiles: Array[File] =
-    if (!posFiles.isEmpty) {
-      val files = posFiles.get
-      (files.getDirectoryScanner(getProject).getIncludedFiles map { fs => new File(files.getDir(getProject), fs) })
+  private def getFilesAndDirs(fileSet: Option[FileSet]): Array[File] =
+    if (!fileSet.isEmpty) {
+      val files = fileSet.get
+      val dir = files.getDir(getProject)
+      val fileTests = (files.getDirectoryScanner(getProject).getIncludedFiles map { fs =>
+        new File(dir, fs) })
+      val dirTests = dir.listFiles(new java.io.FileFilter {
+        def accept(file: File) =
+          file.isDirectory &&
+          (!file.getName().equals(".svn")) &&
+          (!file.getName().endsWith(".obj"))
+      })
+      (dirTests ++ fileTests).toArray
     }
     else
       Array()
+
+  private def getPosFiles: Array[File] =
+    getFilesAndDirs(posFiles)
+
+  private def getPos5Files: Array[File] =
+    getFilesAndDirs(pos5Files)
   
   private def getNegFiles: Array[File] =
     if (!negFiles.isEmpty) {
@@ -108,6 +143,12 @@ class PartestTask extends Task {
     }
     else
       Array()
+
+  private def getJvmFiles: Array[File] =
+    getFilesAndDirs(jvmFiles)
+  
+  private def getJvm5Files: Array[File] =
+    getFilesAndDirs(jvm5Files)
   
   private def getResidentFiles: Array[File] =
     if (!residentFiles.isEmpty) {
@@ -134,6 +175,8 @@ class PartestTask extends Task {
       Array()
 
   override def execute(): Unit = {
+    if (debug)
+      System.setProperty("partest.debug", "true")
     
     if (classpath.isEmpty)
       error("Mandatory attribute 'classpath' is not set.")
@@ -142,7 +185,7 @@ class PartestTask extends Task {
       (classpath.get.list map { fs => new File(fs) }) find { f =>
         f.getName match {
           case "scala-library.jar" => true
-          case "classes" if (f.getParentFile.getName == "library") => true
+          case "library" if (f.getParentFile.getName == "classes") => true
           case _ => false
         }
       }
@@ -182,6 +225,8 @@ class PartestTask extends Task {
     setFileManagerBooleanProperty("failed", runFailed)
     if (!javacmd.isEmpty)
       setFileManagerStringProperty("JAVACMD", javacmd.get.getAbsolutePath)
+    if (!javaccmd.isEmpty)
+      setFileManagerStringProperty("JAVAC_CMD", javaccmd.get.getAbsolutePath)
     setFileManagerStringProperty("CLASSPATH", classpath.get.list.mkString(File.pathSeparator))
     setFileManagerStringProperty("LATEST_LIB", scalaLibrary.get.getAbsolutePath)
     if (!scalacOpts.isEmpty)
@@ -198,6 +243,13 @@ class PartestTask extends Task {
       allSucesses += successes
       allFailures += failures
     }
+
+    if (getPos5Files.size > 0) {
+      log("Compiling files that are expected to build")
+      val (successes, failures) = runTestsForFiles(getPos5Files, "pos")
+      allSucesses += successes
+      allFailures += failures
+    }
     
     if (getNegFiles.size > 0) {
       log("Compiling files that are expected to fail")
@@ -209,6 +261,20 @@ class PartestTask extends Task {
     if (getRunFiles.size > 0) {
       log("Compiling and running files")
       val (successes, failures) = runTestsForFiles(getRunFiles, "run")
+      allSucesses += successes
+      allFailures += failures
+    }
+
+    if (getJvmFiles.size > 0) {
+      log("Compiling and running files")
+      val (successes, failures) = runTestsForFiles(getJvmFiles, "jvm")
+      allSucesses += successes
+      allFailures += failures
+    }
+
+    if (getJvm5Files.size > 0) {
+      log("Compiling and running files")
+      val (successes, failures) = runTestsForFiles(getJvm5Files, "jvm5")
       allSucesses += successes
       allFailures += failures
     }

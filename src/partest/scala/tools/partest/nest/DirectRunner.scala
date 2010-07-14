@@ -1,5 +1,5 @@
 /* NEST (New Scala Test)
- * Copyright 2007-2008 LAMP/EPFL
+ * Copyright 2007-2009 LAMP/EPFL
  * @author Philipp Haller
  */
 
@@ -18,6 +18,21 @@ trait DirectRunner {
   def fileManager: FileManager
 
   private val numActors = Integer.parseInt(System.getProperty("scalatest.actors", "8"))
+
+  if ((System.getProperty("partest.debug", "false") equals "true") ||
+      (System.getProperty("scalatest.debug", "false") equals "true"))
+    scala.actors.Debug.level = 3
+
+  private val coreProp = try {
+    System.getProperty("actors.corePoolSize")
+  } catch {
+    case ace: java.security.AccessControlException =>
+      null
+  }
+  if (coreProp == null) {
+    scala.actors.Debug.info("actors.corePoolSize not defined")
+    System.setProperty("actors.corePoolSize", "16")
+  }
 
   def runTestsForFiles(kindFiles: List[File], kind: String): (Int, Int) = {
     val len = kindFiles.length

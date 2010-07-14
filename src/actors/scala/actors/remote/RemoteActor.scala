@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2005-2008, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2005-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -38,23 +38,18 @@ package scala.actors.remote
  *  }
  *  </pre>
  *
- * @version 0.9.17
+ * @version 0.9.18
  * @author Philipp Haller
  */
 object RemoteActor {
 
   private val kernels = new scala.collection.mutable.HashMap[Actor, NetKernel]
 
-  private var cl: ClassLoader = try {
-    ClassLoader.getSystemClassLoader()
-  } catch {
-    case sec: SecurityException =>
-      Debug.info(this+": caught "+sec)
-      null
-    case ise: IllegalStateException =>
-      Debug.info(this+": caught "+ise)
-      null
-  }
+  /* If set to <code>null</code> (default), the default class loader
+   * of <code>java.io.ObjectInputStream</code> is used for deserializing
+   * objects sent as messages.
+   */
+  private var cl: ClassLoader = null
 
   def classLoader: ClassLoader = cl
   def classLoader_=(x: ClassLoader) { cl = x }
@@ -73,7 +68,7 @@ object RemoteActor {
     val s = Actor.self
     kernels += Pair(s, kern)
 
-    ActorGC.onTerminate(s) {
+    s.onTerminate {
       Debug.info("alive actor "+s+" terminated")
       // remove mapping for `s`
       kernels -= s

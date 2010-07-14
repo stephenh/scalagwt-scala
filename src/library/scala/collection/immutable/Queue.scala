@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2003-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2003-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -112,12 +112,6 @@ class Queue[+A](elem: A*) extends Seq[A] {
     iter.elements.foreach(e => q = e :: q)
     mkQueue(q, out)
   }
-
-  /** Returns a new queue with all elements added.
-   *
-   *  @param  elems       the elements to add.
-   */
-  def enqueue [B >: A](elems: B*) = this + elems
 
   /** Returns a tuple with the first element in the queue,
    *  and a new queue with this element removed.

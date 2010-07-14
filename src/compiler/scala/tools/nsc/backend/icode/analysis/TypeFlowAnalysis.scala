@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 
@@ -167,7 +167,7 @@ abstract class TypeFlowAnalysis {
           assert(visited.contains(b), 
             "Block " + b + " in " + this.method + " has input equal to bottom -- not visited? .." + visited));
       }
-      println("iterations: " + iterations + " for " + method.code.blocks.size)
+      //println("iterations: " + iterations + " for " + method.code.blocks.size)
     }
 
     def blockTransfer(b: BasicBlock, in: lattice.Elem): lattice.Elem = {
@@ -470,7 +470,7 @@ abstract class TypeFlowAnalysis {
           }
 
         case CALL_METHOD(method, style) => style match {
-          case Dynamic =>
+          case Dynamic | InvokeDynamic =>
             stack.pop(1 + method.info.paramTypes.length)
             stack.push(toTypeKind(method.info.resultType))
 

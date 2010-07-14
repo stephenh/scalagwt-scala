@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  */
 // $Id$
 package scala.tools.nsc.io
@@ -59,6 +59,7 @@ extends AbstractFile {
     val existing = lookupName(name, true)
     if (existing == null) {
       val dir = new VirtualDirectory(name, Some(this))
+      files(name) = dir
       dir
     } else {
       existing

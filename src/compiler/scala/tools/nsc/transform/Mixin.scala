@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2007 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author Martin Odersky
  */
 // $Id$
@@ -122,7 +122,10 @@ abstract class Mixin extends InfoTransform {
   def isOverriddenAccessor(member: Symbol, bcs: List[Symbol]): Boolean = atPhase(ownPhase) {
     def hasOverridingAccessor(clazz: Symbol) = {
       clazz.info.nonPrivateDecl(member.name).alternatives.exists(
-        sym => isConcreteAccessor(sym) && matchesType(sym.tpe, member.tpe, true))
+        sym => 
+          isConcreteAccessor(sym) && 
+          !sym.hasFlag(MIXEDIN) &&
+          matchesType(sym.tpe, member.tpe, true))
     }
     bcs.head != member.owner && 
     (hasOverridingAccessor(bcs.head) || isOverriddenAccessor(member, bcs.tail))
@@ -136,8 +139,9 @@ abstract class Mixin extends InfoTransform {
     member setFlag MIXEDIN
   }
 
-  def needsExpandedSetterName(field: Symbol) = 
-    settings.Xexperimental.value && !field.hasFlag(LAZY | MUTABLE)
+  def needsExpandedSetterName(field: Symbol) =
+    !(field hasFlag LAZY) &&
+    (if (field.isMethod) (field hasFlag STABLE) else !(field hasFlag MUTABLE))
 
   /** Add getters and setters for all non-module fields of an implementation
    *  class to its interface unless they are already present. This is done
@@ -154,19 +158,26 @@ abstract class Mixin extends InfoTransform {
 
       /** Create a new getter. Getters are never private or local. They are
        *  always accessors and deferred. */
-      def newGetter(field: Symbol): Symbol =
+      def newGetter(field: Symbol): Symbol = {
+        //println("creating new getter for "+field+field.locationString+(field hasFlag MUTABLE))
         clazz.newMethod(field.pos, nme.getterName(field.name))
-          .setFlag(field.flags & ~(PRIVATE | LOCAL) | ACCESSOR | lateDEFERRED)
+          .setFlag(field.flags & ~(PRIVATE | LOCAL) | ACCESSOR | lateDEFERRED | 
+                     (if (field hasFlag MUTABLE) 0 else STABLE))
           .setInfo(MethodType(List(), field.info))
+      }
 
       /** Create a new setter. Setters are never private or local. They are
        *  always accessors and deferred. */
       def newSetter(field: Symbol): Symbol = {
+        //println("creating new setter for "+field+field.locationString+(field hasFlag MUTABLE))
         val setterName = nme.getterToSetter(nme.getterName(field.name))
         val setter = clazz.newMethod(field.pos, setterName)
           .setFlag(field.flags & ~(PRIVATE | LOCAL) | ACCESSOR | lateDEFERRED)
           .setInfo(MethodType(List(field.info), UnitClass.tpe))
-        if (needsExpandedSetterName(field)) setter.name = clazz.expandedSetterName(setter.name)
+        if (needsExpandedSetterName(field)) {
+          //println("creating expanded setter from "+field)
+          setter.name = clazz.expandedSetterName(setter.name)
+        }
         setter
       }
 
@@ -674,12 +685,12 @@ abstract class Mixin extends InfoTransform {
            && !sym.isOuterAccessor)
         
         if (settings.debug.value) {
-          println("needsInitFlag(" + sym.fullNameString + "): " + res)
-          println("\tsym.isGetter: " + sym.isGetter) 
-          println("\t!isInitializedToDefault: " + !sym.isInitializedToDefault + sym.hasFlag(DEFAULTINIT) + sym.hasFlag(ACCESSOR) + sym.isTerm)
-          println("\t!sym.hasFlag(PARAMACCESSOR): " + !sym.hasFlag(PARAMACCESSOR))
+          log("needsInitFlag(" + sym.fullNameString + "): " + res)
+          log("\tsym.isGetter: " + sym.isGetter) 
+          log("\t!isInitializedToDefault: " + !sym.isInitializedToDefault + sym.hasFlag(DEFAULTINIT) + sym.hasFlag(ACCESSOR) + sym.isTerm)
+          log("\t!sym.hasFlag(PARAMACCESSOR): " + !sym.hasFlag(PARAMACCESSOR))
           //println("\t!sym.accessed.hasFlag(PRESUPER): " + !sym.accessed.hasFlag(PRESUPER))
-          println("\t!sym.isOuterAccessor: " + !sym.isOuterAccessor)
+          log("\t!sym.isOuterAccessor: " + !sym.isOuterAccessor)
         }
         
         res
@@ -790,7 +801,7 @@ abstract class Mixin extends InfoTransform {
                 }
                 if (sym.isSetter) {
                   val isOverriddenSetter = 
-                    settings.Xexperimental.value && nme.isTraitSetterName(sym.name) && {
+                    nme.isTraitSetterName(sym.name) && {
                       sym.allOverriddenSymbols match {
                         case other :: _ => 
                           isOverriddenAccessor(other.getter(other.owner), clazz.info.baseClasses)
@@ -957,6 +968,14 @@ abstract class Mixin extends InfoTransform {
           // assign to fields in some implementation class via an abstract
           // setter in the interface.
           localTyper.typed {
+/*
+            println(lhs.symbol)
+            println(lhs.symbol.owner.info.decls)
+            println(needsExpandedSetterName(lhs.symbol))
+            println(toInterface(lhs.symbol.owner.tpe).typeSymbol)
+            println(toInterface(lhs.symbol.owner.tpe).typeSymbol.info.decls)
+            util.trace("generating tree: ") {
+*/
             atPos(tree.pos) {
               Apply(
                 Select(
@@ -966,6 +985,7 @@ abstract class Mixin extends InfoTransform {
                     needsExpandedSetterName(lhs.symbol))) setPos lhs.pos, 
                 List(rhs))
             }
+//          } 
           }
         case _ =>
           tree

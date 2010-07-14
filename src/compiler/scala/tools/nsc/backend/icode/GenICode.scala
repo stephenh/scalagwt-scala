@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Martin Odersky
  */
 
@@ -844,6 +844,12 @@ abstract class GenICode extends SubComponent  {
             ctx1
           }
 
+        case ApplyDynamic(qual, args) =>
+          val ctx1 = genLoad(qual, ctx, ANY_REF_CLASS)
+          genLoadArguments(args, tree.symbol.info.paramTypes, ctx1)
+          ctx1.bb.emit(CALL_METHOD(tree.symbol, InvokeDynamic), tree.pos)
+          ctx1
+          
         case This(qual) =>
           assert(tree.symbol == ctx.clazz.symbol || tree.symbol.isModuleClass,
                  "Trying to access the this of another class: " +
@@ -929,7 +935,7 @@ abstract class GenICode extends SubComponent  {
               generatedType = SCALA_ALLREF
             case _ =>
               ctx.bb.emit(CONSTANT(value), tree.pos);
-              generatedType = toTypeKind(value.tpe)
+              generatedType = toTypeKind(tree.tpe)
           }
           ctx
 
@@ -1036,9 +1042,7 @@ abstract class GenICode extends SubComponent  {
             ctx.bb.emit(CALL_PRIMITIVE(Conversion(from, to)), pos);
         }
       } else if (from == SCALA_ALL) {
-        ctx.bb.emit(DROP(from))
-        ctx.bb.emit(getZeroOf(ctx.method.returnType))
-        ctx.bb.emit(RETURN(ctx.method.returnType))
+        ctx.bb.emit(THROW())
         ctx.bb.enterIgnoreMode
       } else if (from == SCALA_ALLREF) {
         ctx.bb.emit(DROP(from))

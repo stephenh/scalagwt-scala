@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2005-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2005-2009, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -13,6 +13,7 @@ package scala.actors
 import compat.Platform
 
 import java.lang.{Runnable, Thread, InterruptedException, System, Runtime}
+import java.lang.Thread.State
 
 import scala.collection.Set
 import scala.collection.mutable.{ArrayBuffer, Buffer, HashMap, Queue, Stack, HashSet}
@@ -23,9 +24,11 @@ import scala.collection.mutable.{ArrayBuffer, Buffer, HashMap, Queue, Stack, Has
  * @version 0.9.18
  * @author Philipp Haller
  */
-class FJTaskScheduler2 extends Thread with IScheduler {
-  // as long as this thread runs, JVM should not exit
-  setDaemon(false)
+class FJTaskScheduler2(daemon: Boolean) extends Thread with IScheduler {
+  setDaemon(daemon)
+
+  def this() =
+    this(false)
 
   var printStats = false
 
@@ -65,16 +68,19 @@ class FJTaskScheduler2 extends Thread with IScheduler {
   private val executor =
     new FJTaskRunnerGroup(coreSize)
 
+  /** The <code>ActorGC</code> instance that keeps track of the
+   *  live actor objects that are managed by <code>this</code>
+   *  scheduler.
+   */
+  val actorGC = new ActorGC
+
   private var terminating = false
   private var suspending = false
-
-  private var lastActivity = Platform.currentTime
 
   private var submittedTasks = 0
 
   def printActorDump {}
 
-  private val TICK_FREQ = 50
   private val CHECK_FREQ = 100
 
   def onLockup(handler: () => Unit) =
@@ -86,6 +92,12 @@ class FJTaskScheduler2 extends Thread with IScheduler {
   }
 
   private var lockupHandler: () => Unit = null
+
+  private def allWorkersBlocked: Boolean =
+    executor.threads.forall(t => {
+      val s = t.getState()
+      s == State.BLOCKED || s == State.WAITING || s == State.TIMED_WAITING
+    })
 
   override def run() {
     try {
@@ -100,18 +112,17 @@ class FJTaskScheduler2 extends Thread with IScheduler {
 
           if (!suspending) {
 
-            ActorGC.gc()
+            actorGC.gc()
 
             // check if we need more threads
-            if (Platform.currentTime - lastActivity >= TICK_FREQ
-                && coreSize < maxSize
+            if (coreSize < maxSize
+                && allWorkersBlocked
                 && executor.checkPoolSize()) {
                   //Debug.info(this+": increasing thread pool size")
                   coreSize += 1
-                  lastActivity = Platform.currentTime
                 }
             else {
-              if (ActorGC.allTerminated) {
+              if (actorGC.allTerminated) {
                 // if all worker threads idle terminate
                 if (executor.getActiveCount() == 0) {
                   Debug.info(this+": initiating shutdown...")
@@ -120,9 +131,6 @@ class FJTaskScheduler2 extends Thread with IScheduler {
                   // the FJTaskRunnerGroup since there is
                   // no separate thread associated with it,
                   // and FJTaskRunner threads have daemon status.
-
-                  // terminate timer thread
-                  TimerThread.shutdown()
                   throw new QuitException
                 }
               }
@@ -149,19 +157,10 @@ class FJTaskScheduler2 extends Thread with IScheduler {
       def run() { fun }
     })
 
-  /**
-   *  @param  a the actor
-   */
-  def tick(a: Actor) {
-    lastActivity = Platform.currentTime
-  }
-
   /** Shuts down all idle worker threads.
    */
   def shutdown(): Unit = synchronized {
     terminating = true
-    // terminate timer thread
-    TimerThread.shutdown()
   }
 
   def snapshot(): LinkedQueue = {

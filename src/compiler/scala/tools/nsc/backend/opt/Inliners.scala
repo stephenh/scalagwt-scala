@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2008 LAMP/EPFL
+ * Copyright 2005-2009 LAMP/EPFL
  * @author  Iulian Dragos
  */
 
@@ -148,6 +148,9 @@ abstract class Inliners extends SubComponent {
          val newInstr = i match {
            case THIS(clasz) =>
              LOAD_LOCAL(inlinedThis);
+             
+           case STORE_THIS(_) =>
+             STORE_LOCAL(inlinedThis)
 
            case JUMP(whereto) =>
              JUMP(inlinedBlock(whereto));
@@ -288,7 +291,7 @@ abstract class Inliners extends SubComponent {
         if (m.code ne null) {
           if (settings.debug.value)
             log("Analyzing " + m + " count " + count);
-          tfa.reinit(m)
+          tfa.init(m)
           tfa.run
           for (bb <- linearizer.linearize(m)) {
             var info = tfa.in(bb);
@@ -363,7 +366,7 @@ abstract class Inliners extends SubComponent {
       m.normalize
     } catch {
       case e => 
-        Console.println("############# Cought exception: " + e + " #################");
+        Console.println("############# Caught exception: " + e + " #################");
         Console.println("\nMethod: " + m + 
                         "\nMethod owner: " + m.symbol.owner);
         e.printStackTrace();
