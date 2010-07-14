@@ -71,6 +71,7 @@ trait StdNames {
     val LOCALDUMMY_PREFIX_STRING = "<local "
     val SUPER_PREFIX_STRING = "super$"
     val EXPAND_SEPARATOR_STRING = "$$"
+    val TRAIT_SETTER_SEPARATOR_STRING = "$_setter_$"
     val TUPLE_FIELD_PREFIX_STRING = "_"
     val CHECK_IF_REFUTABLE_STRING = "check$ifrefutable$"
 
@@ -96,10 +97,24 @@ trait StdNames {
     def isLocalName(name: Name) = name.endsWith(LOCAL_SUFFIX)
     def isSetterName(name: Name) = name.endsWith(SETTER_SUFFIX)
     def isLocalDummyName(name: Name) = name.startsWith(LOCALDUMMY_PREFIX)
+    def isTraitSetterName(name: Name) = isSetterName(name) && name.pos(TRAIT_SETTER_SEPARATOR_STRING) < name.length
     def isOpAssignmentName(name: Name) = 
-      name.endsWith(nme.EQL) && name != nme.EQEQ && !name.endsWith(nme.USCOREEQL)
+      name(name.length - 1) == '=' &&
+      isOperatorCharacter(name(0)) &&
+      name(0) != '=' && name != NEraw && name != LEraw && name != GEraw
+      
+    def isOperatorCharacter(c: Char) = c match {
+      case '~' | '!' | '@' | '#' | '%' | 
+           '^' | '*' | '+' | '-' | '<' |
+           '>' | '?' | ':' | '=' | '&' | 
+           '|' | '\\'| '/' => true
+      case _ =>
+        val chtp = Character.getType(c)
+        chtp == Character.MATH_SYMBOL || chtp == Character.OTHER_SYMBOL
+      }
 
-    /** If `name' is an expandedName, the original name. Otherwise `name' itself.
+    /** If `name' is an expandedName name, the original name. 
+     *  Otherwise `name' itself.
      *  @see Symbol.expandedName
      */
     def originalName(name: Name): Name = {
@@ -117,17 +132,19 @@ trait StdNames {
     }
 
     def getterToLocal(name: Name): Name = {
-      assert(!isLocalName(name) && !isSetterName(name))//debug
       newTermName(name.toString() + LOCAL_SUFFIX)
     }
 
     def getterToSetter(name: Name): Name = {
-      assert(!isLocalName(name) && !isSetterName(name))//debug
       newTermName(name.toString() + SETTER_SUFFIX)
     }
 
     def setterToGetter(name: Name): Name = {
-      name.subName(0, name.length - SETTER_SUFFIX.length)
+      val p = name.pos(TRAIT_SETTER_SEPARATOR_STRING)
+      if (p < name.length)
+        setterToGetter(name.subName(p + TRAIT_SETTER_SEPARATOR_STRING.length, name.length))
+      else
+        name.subName(0, name.length - SETTER_SUFFIX.length)
     }
 
     def getterName(name: Name): Name =
@@ -169,14 +186,20 @@ trait StdNames {
     val WILDCARD = newTermName("_")
     val WILDCARD_STAR = newTermName("_*")
     val COMPOUND_NAME = newTermName("<ct>")
+
     val ANON_CLASS_NAME = newTermName("$anon")
+    val ANON_CLASS_NAME_tn = ANON_CLASS_NAME.toTypeName
     val ANON_FUN_NAME = newTermName("$anonfun")
+    val ANON_FUN_NAME_tn = ANON_FUN_NAME.toTypeName
     val REFINE_CLASS_NAME = newTermName("<refinement>")
+    val REFINE_CLASS_NAME_tn = REFINE_CLASS_NAME.toTypeName
     val EMPTY_PACKAGE_NAME = newTermName("<empty>")
+    val EMPTY_PACKAGE_NAME_tn = EMPTY_PACKAGE_NAME.toTypeName
     val IMPORT = newTermName("<import>")
     val ZERO = newTermName("<zero>")
     val STAR = newTermName("*")
     val ROOT = newTermName("<root>")
+    val ROOT_tn = ROOT.toTypeName
     val ROOTPKG = newTermName("_root_")
     val REPEATED_PARAM_CLASS_NAME = newTermName("<repeated>")
     val BYNAME_PARAM_CLASS_NAME = newTermName("<byname>")
@@ -193,7 +216,6 @@ trait StdNames {
     val PLUS = encode("+")
     val PLUSPLUS = encode("++")
     val TILDE = encode("~")
-    val EQEQ = encode("==")
     val BANG = encode("!")
     val BANGEQ = encode("!=")
     val BARBAR = encode("||")
@@ -267,6 +289,7 @@ trait StdNames {
     val coerce = newTermName("coerce")
     val defaultValue = newTermName("defaultValue")
     val detach = newTermName("detach")
+    val dottype = newTermName(".type")
     val drop = newTermName("drop")
     val dummy = newTermName("$dummy")
     val elem = newTermName("elem")
@@ -325,12 +348,14 @@ trait StdNames {
     val runtime = newTermName("runtime")
     val sameElements = newTermName("sameElements")
     val scala_ = newTermName("scala")
+    val scala_tn = scala_.toTypeName
     val self = newTermName("self")
     val synchronized_ = newTermName("synchronized")
     val tag = newTermName("$tag")
     val tail = newTermName("tail")
     val toList = newTermName("toList")
     val toString_ = newTermName("toString")
+    val clone_ = newTermName("clone")
     val that = newTermName("that")
     val that1 = newTermName("that1")
     val this_ = newTermName("this")
@@ -340,6 +365,7 @@ trait StdNames {
     val unapplySeq = newTermName("unapplySeq")
     val unbind = newTermName("unbind")
     val unbox = newTermName("unbox")
+    val unreferenced = newTermName("unreferenced")
     val update = newTermName("update")
     val value = newTermName("value")
     val view_ = newTermName("view")
@@ -372,6 +398,12 @@ trait StdNames {
     val UNARY_+ = encode("unary_+")
     val UNARY_- = encode("unary_-")
     val UNARY_! = encode("unary_!")
+
+    // unencoded comparisons
+    val EQraw = newTermName("==")
+    val NEraw = newTermName("!=")
+    val LEraw = newTermName("<=")
+    val GEraw = newTermName(">=")
 
     // value-conversion methods
     val toByte = newTermName("toByte")
@@ -489,8 +521,11 @@ trait StdNames {
     final val Code          = nme.NOSYMBOL
   }
 
-  val sn: SymbolNames =
-    if (forMSIL) new MSILNames
+  private var sn0 : SymbolNames = _
+  def sn: SymbolNames = {
+    if (sn0 == null) sn0 = if (forMSIL) new MSILNames
     else if (forCLDC) new CLDCNames
     else new J2SENames
+    sn0
+  }
 }

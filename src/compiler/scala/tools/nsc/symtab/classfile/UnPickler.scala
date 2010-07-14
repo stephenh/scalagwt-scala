@@ -222,13 +222,13 @@ abstract class UnPickler {
           }
           sym.setFlag(flags.toLong & PickledFlags)
           sym.privateWithin = privateWithin
-          if (readIndex != end) assert(sym hasFlag (SUPERACCESSOR | PARAMACCESSOR))
+          if (readIndex != end) assert(sym hasFlag (SUPERACCESSOR | PARAMACCESSOR), sym)
           if (sym hasFlag SUPERACCESSOR) assert(readIndex != end)
           sym.setInfo(
             if (readIndex != end) new LazyTypeRefAndAlias(inforef, readNat())
             else new LazyTypeRef(inforef))
           if (sym.owner.isClass && sym != classRoot && sym != moduleRoot && 
-              !sym.isModuleClass && !sym.isRefinementClass && !sym.isTypeParameter)
+              !sym.isModuleClass && !sym.isRefinementClass && !sym.isTypeParameter && !sym.isExistential)
             symScope(sym.owner) enter sym
       }
       sym
@@ -250,7 +250,14 @@ abstract class UnPickler {
         case CONSTANTtpe =>
           mkConstantType(readConstantRef())
         case TYPEREFtpe =>
-          rawTypeRef(readTypeRef(), readSymbolRef(), until(end, readTypeRef))
+          val pre = readTypeRef()
+          val sym = readSymbolRef()
+          var args = until(end, readTypeRef)
+          if ((sym hasFlag JAVA) && sym.typeParams.isEmpty && global.settings.target.value != "jvm-1.5") {
+            // forget arguments, we are compiling for 1.4; see #1144
+            args = List()
+          }
+          rawTypeRef(pre, sym, args)
         case TYPEBOUNDStpe =>
           mkTypeBounds(readTypeRef(), readTypeRef())
         case REFINEDtpe =>

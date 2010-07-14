@@ -93,6 +93,22 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
       }
     }
   }
+
+  /** Convert repeated parameters to arrays if they occur as part of a Java method 
+   */
+  private def repeatedToArray(tp: Type): Type = tp match {
+    case MethodType(formals, rtpe) 
+    if (!formals.isEmpty && formals.last.typeSymbol == RepeatedParamClass) =>
+      MethodType(formals.init ::: 
+                 List(appliedType(ArrayClass.typeConstructor, List(formals.last.typeArgs.head))),
+                 rtpe)
+    case PolyType(tparams, rtpe) =>
+      val rtpe1 = repeatedToArray(rtpe)
+      if (rtpe1 eq rtpe) tp
+      else PolyType(tparams, rtpe1)
+    case _ =>
+      tp
+  }
   
   /** - return symbol's transformed type, 
    *  - if symbol is a def parameter with transformed type T, return () => T
@@ -100,7 +116,9 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
    * @MAT: starting with this phase, the info of every symbol will be normalized
    */
   def transformInfo(sym: Symbol, tp: Type): Type = 
-    if (sym.isType) uncurryType(tp) else uncurry(tp)
+    if (sym.isType) uncurryType(tp) 
+    else if (sym.isMethod && sym.hasFlag(JAVA)) uncurry(repeatedToArray(tp))
+    else uncurry(tp)
 
   /** Traverse tree omitting local method definitions.
    *  If a `return' is encountered, set `returnFound' to true.
@@ -128,6 +146,11 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
     private val byNameArgs = new HashSet[Tree]
     private val noApply = new HashSet[Tree]
 
+    override def transformUnit(unit: CompilationUnit) {
+      freeMutableVars.clear
+      freeLocalsTraverser(unit.body)
+      unit.body = transform(unit.body)
+    }
     override def transform(tree: Tree): Tree = try { //debug
       postTransform(mainTransform(tree))
     } catch {
@@ -169,7 +192,7 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
     private def nonLocalReturnKey(meth: Symbol) = nonLocalReturnKeys.get(meth) match {
       case Some(k) => k
       case None =>
-        val k = meth.newValue(meth.pos, unit.fresh.newName("nonLocalReturnKey"))
+        val k = meth.newValue(meth.pos, unit.fresh.newName(meth.pos, "nonLocalReturnKey"))
           .setFlag(SYNTHETIC).setInfo(ObjectClass.tpe)
         nonLocalReturnKeys(meth) = k
         k
@@ -403,7 +426,7 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
       def liftTree(tree: Tree) = {
         if (settings.debug.value)
           log("lifting tree at: " + (tree.pos))
-        val sym = currentOwner.newMethod(tree.pos, unit.fresh.newName("liftedTree"))
+        val sym = currentOwner.newMethod(tree.pos, unit.fresh.newName(tree.pos, "liftedTree"))
         sym.setInfo(MethodType(List(), tree.tpe))
         new ChangeOwnerTraverser(currentOwner, sym).traverse(tree)
         localTyper.typed {
@@ -428,11 +451,14 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
             if (tree.symbol.isClassConstructor) {
               atOwner(tree.symbol) {
                 val rhs1 = (rhs: @unchecked) match {
-                  case Block(stat :: stats, expr) =>
-                    copy.Block(
-                      rhs,
-                      withInConstructorFlag(INCONSTRUCTOR) { transform(stat) } :: transformTrees(stats),
-                      transform(expr));
+                  case Block(stats, expr) =>
+                    def transformInConstructor(stat: Tree) = 
+                      withInConstructorFlag(INCONSTRUCTOR) { transform(stat) }
+                    val presupers = treeInfo.preSuperFields(stats) map transformInConstructor
+                    val rest = stats drop presupers.length
+                    val supercalls = rest take 1 map transformInConstructor
+                    val others = rest drop 1 map transform
+                    copy.Block(rhs, presupers ::: supercalls ::: others, transform(expr))
                 }
                 copy.DefDef(
                   tree, mods, name, transformTypeDefs(tparams),
@@ -443,9 +469,14 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
             }
           }
 
-        case ValDef(_, _, _, rhs)
-          if (!tree.symbol.owner.isSourceMethod) =>
+        case ValDef(_, _, _, rhs) =>
+          val sym = tree.symbol
+          // a local variable that is mutable and free somewhere later should be lifted
+          // as lambda lifting (coming later) will wrap 'rhs' in an Ref object.
+          if (!sym.owner.isSourceMethod || (sym.isVariable && freeMutableVars(sym)))
             withNeedLift(true) { super.transform(tree) }
+          else
+            super.transform(tree)
 /*
         case Apply(Select(Block(List(), Function(vparams, body)), nme.apply), args) =>
           // perform beta-reduction; this helps keep view applications small
@@ -547,7 +578,7 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
         case Try(body, catches, finalizer) =>
           if (catches forall treeInfo.isCatchCase) tree
           else {
-            val exname = unit.fresh.newName("ex$")
+            val exname = unit.fresh.newName(tree.pos, "ex$")
             val cases =
               if ((catches exists treeInfo.isDefaultCase) || (catches.last match {  // bq: handle try { } catch { ... case ex:Throwable => ...}
                     case CaseDef(Typed(Ident(nme.WILDCARD), tpt), EmptyTree, _) if (tpt.tpe =:= ThrowableClass.tpe) =>
@@ -594,6 +625,27 @@ abstract class UnCurry extends InfoTransform with TypingTransformers {
         case _ => 
           if (tree.isType) TypeTree(tree.tpe) setPos tree.pos else tree
       }
+    }
+  }
+  
+  import collection.mutable
+  /** Set of mutable local variables that are free in some inner method. */
+  private val freeMutableVars: mutable.Set[Symbol] = new mutable.HashSet
+  
+  private val freeLocalsTraverser = new Traverser {
+    var currentMethod: Symbol = NoSymbol
+    override def traverse(tree: Tree) = tree match {
+      case DefDef(_, _, _, _, _, _) =>
+        val lastMethod = currentMethod
+        currentMethod = tree.symbol
+        super.traverse(tree)
+        currentMethod = lastMethod
+      case Ident(_) =>
+        val sym = tree.symbol
+        if (sym.isVariable && sym.owner.isMethod && sym.owner != currentMethod)
+          freeMutableVars += sym
+      case _ =>
+        super.traverse(tree)
     }
   }
 }

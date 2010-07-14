@@ -233,7 +233,7 @@ abstract class Inliners extends SubComponent {
        // duplicate the other blocks in the callee
        linearizer.linearize(callee).foreach { bb => 
          var info = a.in(bb);
-         bb traverse { i => 
+         for (i <- bb) {
            i match {
              case RETURN(kind) => kind match {
                  case UNIT =>
@@ -288,7 +288,7 @@ abstract class Inliners extends SubComponent {
         if (m.code ne null) {
           if (settings.debug.value)
             log("Analyzing " + m + " count " + count);
-          tfa.init(m)
+          tfa.reinit(m)
           tfa.run
           for (bb <- linearizer.linearize(m)) {
             var info = tfa.in(bb);
@@ -439,8 +439,8 @@ abstract class Inliners extends SubComponent {
     private def lookupImpl(meth: Symbol, clazz: Symbol): Symbol = {
       //println("\t\tlooking up " + meth + " in " + clazz.fullNameString + " meth.owner = " + meth.owner)
       if (meth.owner == clazz 
-          || clazz == definitions.AllRefClass 
-          || clazz == definitions.AllClass) meth
+          || clazz == definitions.NullClass 
+          || clazz == definitions.NothingClass) meth
       else {
         val implementingMethod = meth.overridingSymbol(clazz) 
         if (implementingMethod != NoSymbol) 

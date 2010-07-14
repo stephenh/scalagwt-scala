@@ -26,7 +26,11 @@ object HashSet {
   def apply[A](elems: A*) = empty[A] ++ elems
 }
 
-/** This class implements immutable sets using a hash table.
+/** This class implements immutable maps/sets using a hash table.
+  * It is optimized for sequential accesses where the last updated table is accessed most often.
+  * It supports with reasonable efficiency accesses to previous versions of the table by keeping
+  * a change log that's regularly compacted.
+  * It needs to synchronize most methods, so it is less suitable for highly concurrent accesses.
   *
   *  @author  Martin Odersky
   *  @version 2.0, 19/01/2007
@@ -74,12 +78,13 @@ class HashSet[A] extends Set[A] with mutable.FlatHashTable[A] {
   override def size: Int = synchronized {
     var m = this
     var cnt = 0
-    var s = tableSize
+    var s = 0
     while (m.later != null) {
       if (m.deleted) s += 1 else s -= 1
       cnt += 1
       m = m.later
     }
+    s += m.tableSize
     if (cnt > logLimit) makeCopy(m)  
     s
   }

@@ -19,6 +19,19 @@ trait EtaExpansion { self: Analyzer =>
   import global._
   import posAssigner.atPos
 
+  object etaExpansion {
+    def unapply(tree: Tree): Option[(List[ValDef], Tree, List[Tree])] = tree match {
+      case Function(vparams, Apply(fn, args)) 
+      if (List.forall2(vparams, args) {
+        case (vparam, Ident(name)) => vparam.name == name
+        case _ => false
+      }) => 
+        Some((vparams, fn, args))
+      case _ =>
+        None
+    }
+  }
+
   /** <p>
    *    Expand partial function applications of type <code>type</code>.
    *  </p><pre>
@@ -96,15 +109,10 @@ trait EtaExpansion { self: Analyzer =>
         def cnt = {
           cnt0 += 1
           cnt0 - 1
-        }
+        } 
         val params = formals map (formal =>
-          ValDef(Modifiers(SYNTHETIC | PARAM), freshName(tree.pos, cnt), TypeTree()
-            .setType(formal), EmptyTree))
-        val args = params map (param => Ident(param.name))
-        val applyArgs =
-          if (isVarArgs(formals)) args.init ::: Typed(args.last, Ident(nme.WILDCARD_STAR.toTypeName)) :: Nil
-          else args
-        atPos(tree.pos)(Function(params, expand(Apply(tree, applyArgs), restpe)))
+          ValDef(Modifiers(SYNTHETIC | PARAM), freshName(tree.pos, cnt), TypeTree(formal), EmptyTree))
+        atPos(tree.pos)(Function(params, expand(Apply(tree, params map gen.paramToArg), restpe)))
         //atPos(tree.pos)(Function(params, expand(Apply(tree, args), restpe)))
       case _ =>
         tree

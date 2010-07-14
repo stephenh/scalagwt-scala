@@ -41,8 +41,8 @@ trait Definitions {
 
     lazy val anyrefparam = List(AnyRefClass.typeConstructor)
 
-    var AllRefClass: Symbol = _
-    var AllClass: Symbol = _
+    var NullClass: Symbol = _
+    var NothingClass: Symbol = _
     var SingletonClass: Symbol = _
 
     lazy val ClassClass: Symbol = getClass(sn.Class)
@@ -74,17 +74,12 @@ trait Definitions {
     var IntClass: Symbol = _
       def Int_Or  = definitions.getMember(definitions.IntClass, nme.OR)
       def Int_And = definitions.getMember(definitions.IntClass, nme.AND)
-      def Int_==  = definitions.getMember(definitions.IntClass, nme.EQEQ)
+      def Int_==  = definitions.getMember(definitions.IntClass, nme.EQ)
+      def Int_!=  = definitions.getMember(definitions.IntClass, nme.NE)
 
     var LongClass: Symbol = _
     var FloatClass: Symbol = _
     var DoubleClass: Symbol = _
-
-    // remote classes
-    //lazy val RemoteRefClass = getClass("scala.runtime.RemoteRef")
-    //lazy val RemoteRefModule = getModule("scala.runtime.RemoteRef")
-    //lazy val RemoteObjectRefClass = getClass("scala.runtime.remoting.RemoteObjectRef")
-    //var RemoteRefClasses: HashMap[Symbol, Symbol] = _
 
     // the scala reference classes
     lazy val ScalaObjectClass: Symbol = getClass("scala.ScalaObject")
@@ -132,6 +127,7 @@ trait Definitions {
       def Predef_error    = getMember(PredefModule, nme.error)
     lazy val ConsoleModule: Symbol = getModule("scala.Console")
     lazy val MatchErrorClass: Symbol = getClass("scala.MatchError")
+    lazy val UninitializedErrorClass: Symbol = getClass("scala.UninitializedFieldError")
     //var MatchErrorModule: Symbol = _
     //  def MatchError_fail = getMember(MatchErrorModule, nme.fail)
     //  def MatchError_report = getMember(MatchErrorModule, nme.report)
@@ -196,8 +192,8 @@ trait Definitions {
 
     lazy val OptionClass: Symbol = getClass("scala.Option")
 
-    lazy val SomeClass : Symbol = getClass("scala.Some")
-    lazy val NoneClass : Symbol = getModule("scala.None")
+    lazy val SomeClass: Symbol = getClass("scala.Some")
+    lazy val NoneClass: Symbol = getModule("scala.None")
 
     def isOptionType(tp: Type) = tp.normalize match {
       case TypeRef(_, sym, List(_)) if sym == OptionClass => true
@@ -229,7 +225,7 @@ trait Definitions {
     }).normalize
     
     /* </unapply> */
-    val MaxFunctionArity = 9
+    val MaxFunctionArity = 22
     val FunctionClass: Array[Symbol] = new Array(MaxFunctionArity + 1)
       def functionApply(n: Int) = getMember(FunctionClass(n), nme.apply)
       def functionType(formals: List[Type], restpe: Type) =
@@ -286,9 +282,14 @@ trait Definitions {
     var Object_synchronized: Symbol = _
     var Object_isInstanceOf: Symbol = _
     var Object_asInstanceOf: Symbol = _
-    def Object_equals   = getMember(ObjectClass, nme.equals_)
-    def Object_hashCode = getMember(ObjectClass, nme.hashCode_)
-    def Object_toString = getMember(ObjectClass, nme.toString_)
+    def Object_getClass  = getMember(ObjectClass, nme.getClass_)
+    def Object_clone     = getMember(ObjectClass, nme.clone_)
+    def Object_finalize  = getMember(ObjectClass, nme.finalize_)
+    def Object_notify    = getMember(ObjectClass, nme.notify_)
+    def Object_notifyAll = getMember(ObjectClass, nme.notifyAll_)
+    def Object_equals    = getMember(ObjectClass, nme.equals_)
+    def Object_hashCode  = getMember(ObjectClass, nme.hashCode_)
+    def Object_toString  = getMember(ObjectClass, nme.toString_)
 
     var String_+           : Symbol = _
 
@@ -328,8 +329,6 @@ trait Definitions {
       if (owner == NoSymbol) return NoSymbol
       val result = owner.info.nonPrivateMember(name)
       if (result == NoSymbol) {
-        Console.println(owner.infosString)
-        Console.println(owner.info.decls)
         throw new FatalError(owner.toString() + " does not have a member " + name)
       }
       result
@@ -399,7 +398,7 @@ trait Definitions {
 
     private def newTypeParam(owner: Symbol, index: Int): Symbol =
       owner.newTypeParameter(NoPosition, "T" + index)
-        .setInfo(mkTypeBounds(AllClass.typeConstructor, AnyClass.typeConstructor))
+        .setInfo(mkTypeBounds(NothingClass.typeConstructor, AnyClass.typeConstructor))
 
     val boxedClass = new HashMap[Symbol, Symbol]
     val unboxMethod = new HashMap[Symbol, Symbol] // Type -> Method
@@ -629,7 +628,7 @@ trait Definitions {
         case _ => tp
       }
       def flatNameString(sym: Symbol, separator: Char): String =
-        if (sym.owner.isPackageClass) sym.fullNameString('.')
+        if (sym.owner.isPackageClass) sym.fullNameString('.') + (if (sym.isModuleClass) "$" else "")
         else flatNameString(sym.owner, separator) + "$" + sym.simpleName;
       def signature1(etp: Type): String = {
         if (etp.typeSymbol == ArrayClass) "[" + signature1(erasure(etp.normalize.typeArgs.head))
@@ -660,10 +659,10 @@ trait Definitions {
       AnyRefClass =
         newAlias(ScalaPackageClass, nme.AnyRef, ObjectClass.typeConstructor)
 
-      AllRefClass = newClass(ScalaPackageClass, nme.Null, anyrefparam)
+      NullClass = newClass(ScalaPackageClass, nme.Null, anyrefparam)
         .setFlag(ABSTRACT | TRAIT | FINAL)
 
-      AllClass = newClass(ScalaPackageClass, nme.Nothing, anyparam)
+      NothingClass = newClass(ScalaPackageClass, nme.Nothing, anyparam)
         .setFlag(ABSTRACT | TRAIT | FINAL)
 
       SingletonClass = newClass(ScalaPackageClass, nme.Singleton, anyparam)
@@ -695,7 +694,7 @@ trait Definitions {
 
       EqualsPatternClass = newClass(ScalaPackageClass, nme.EQUALS_PATTERN_NAME, List());
       { 
-        val tparam = newTypeParam(EqualsPatternClass, 0);
+        val tparam = newTypeParam(EqualsPatternClass, 0)
         EqualsPatternClass.setInfo(
           PolyType(
             List(tparam),
@@ -754,7 +753,7 @@ trait Definitions {
       String_+ = newMethod(
         StringClass, "+", anyparam, StringClass.typeConstructor) setFlag FINAL
 
-      PatternWildcard = NoSymbol.newValue(NoPosition, "_").setInfo(AllClass.typeConstructor)
+      PatternWildcard = NoSymbol.newValue(NoPosition, "_").setInfo(NothingClass.typeConstructor)
 
       if (forMSIL) {
         val intType = IntClass.typeConstructor
@@ -766,49 +765,48 @@ trait Definitions {
         val stringParam = List(stringType)
 
         // additional methods of Object
-        newMethod(ObjectClass, "clone", List(), AnyRefClass.typeConstructor);
-        newMethod(ObjectClass, "wait", List(), unitType);
-        newMethod(ObjectClass, "wait", List(longType), unitType);
-        newMethod(ObjectClass, "wait", List(longType, intType), unitType);
-        newMethod(ObjectClass, "notify", List(), unitType);
-        newMethod(ObjectClass, "notifyAll", List(), unitType);
+        newMethod(ObjectClass, "clone", List(), AnyRefClass.typeConstructor)
+        newMethod(ObjectClass, "wait", List(), unitType)
+        newMethod(ObjectClass, "wait", List(longType), unitType)
+        newMethod(ObjectClass, "wait", List(longType, intType), unitType)
+        newMethod(ObjectClass, "notify", List(), unitType)
+        newMethod(ObjectClass, "notifyAll", List(), unitType)
 
         // additional methods of String
-        newMethod(StringClass, "length", List(), intType);
-        newMethod(StringClass, "compareTo", stringParam, intType);
-        newMethod(StringClass, "charAt", intParam, charType);
-        newMethod(StringClass, "concat", stringParam, stringType);
-        newMethod(StringClass, "indexOf", intParam, intType);
-        newMethod(StringClass, "indexOf", List(intType, intType), intType);
-        newMethod(StringClass, "indexOf", stringParam, intType);
-        newMethod(StringClass, "indexOf", List(stringType, intType), intType);
-        newMethod(StringClass, "lastIndexOf", intParam, intType);
-        newMethod(StringClass, "lastIndexOf", List(intType, intType), intType);
-        newMethod(StringClass, "lastIndexOf", stringParam, intType);
-        newMethod(StringClass, "lastIndexOf", List(stringType, intType), intType);
-        newMethod(StringClass, "toLowerCase", List(), stringType);
-        newMethod(StringClass, "toUpperCase", List(), stringType);
-        newMethod(StringClass, "startsWith", stringParam, booltype);
-        newMethod(StringClass, "endsWith", stringParam, booltype);
-        newMethod(StringClass, "substring", intParam, stringType);
-        newMethod(StringClass, "substring", List(intType, intType), stringType);
-        newMethod(StringClass, "trim", List(), stringType);
-        newMethod(StringClass, "intern", List(), stringType);
-        newMethod(StringClass, "replace", List(charType, charType), stringType);
+        newMethod(StringClass, "length", List(), intType)
+        newMethod(StringClass, "compareTo", stringParam, intType)
+        newMethod(StringClass, "charAt", intParam, charType)
+        newMethod(StringClass, "concat", stringParam, stringType)
+        newMethod(StringClass, "indexOf", intParam, intType)
+        newMethod(StringClass, "indexOf", List(intType, intType), intType)
+        newMethod(StringClass, "indexOf", stringParam, intType)
+        newMethod(StringClass, "indexOf", List(stringType, intType), intType)
+        newMethod(StringClass, "lastIndexOf", intParam, intType)
+        newMethod(StringClass, "lastIndexOf", List(intType, intType), intType)
+        newMethod(StringClass, "lastIndexOf", stringParam, intType)
+        newMethod(StringClass, "lastIndexOf", List(stringType, intType), intType)
+        newMethod(StringClass, "toLowerCase", List(), stringType)
+        newMethod(StringClass, "toUpperCase", List(), stringType)
+        newMethod(StringClass, "startsWith", stringParam, booltype)
+        newMethod(StringClass, "endsWith", stringParam, booltype)
+        newMethod(StringClass, "substring", intParam, stringType)
+        newMethod(StringClass, "substring", List(intType, intType), stringType)
+        newMethod(StringClass, "trim", List(), stringType)
+        newMethod(StringClass, "intern", List(), stringType)
+        newMethod(StringClass, "replace", List(charType, charType), stringType)
         newMethod(StringClass, "toCharArray", List(),
-                  appliedType(ArrayClass.typeConstructor, List(charType)));
+                  appliedType(ArrayClass.typeConstructor, List(charType)))
       }
 
       AnnotationDefaultAttr = newClass(RootClass,
                                        nme.AnnotationDefaultATTR,
                                        List(AnnotationClass.typeConstructor))
-
-      //RemoteRefClasses = new HashMap[Symbol, Symbol]
-      //for (clazz <- refClass.values) {
-      //  RemoteRefClasses(clazz) = getClass("scala.runtime.remoting.Remote" + clazz.name)
-      //}
-      //RemoteRefClasses(ObjectRefClass) = RemoteObjectRefClass
-    }
+      // This attribute needs a constructor so that modifiers in parsed
+      // Java code make sense
+      AnnotationDefaultAttr.info.decls.enter(
+        AnnotationDefaultAttr.newConstructor(NoPosition)
+          .setInfo(MethodType(List(), AnnotationDefaultAttr.tpe)))
+    } //init
 
     var nbScalaCallers: Int = 0
     def newScalaCaller(delegateType: Type): Symbol = {

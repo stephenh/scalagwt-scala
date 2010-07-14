@@ -27,11 +27,6 @@ abstract class GenICode extends SubComponent  {
   val phaseName = "icode"
 
   override def newPhase(prev: Phase) = new ICodePhase(prev)
-  
-  
-  /** Is this symbol static in the Java sense? */
-  def isStaticSymbol(s: Symbol): Boolean =
-    s.hasFlag(Flags.STATIC) || s.hasFlag(Flags.STATICMEMBER) || s.owner.isImplClass
 
   class ICodePhase(prev: Phase) extends StdPhase(prev) {
 
@@ -45,8 +40,8 @@ abstract class GenICode extends SubComponent  {
     // this depends on the backend! should be changed.
     val ANY_REF_CLASS = REFERENCE(definitions.ObjectClass)
 
-    val SCALA_ALL    = REFERENCE(definitions.AllClass)
-    val SCALA_ALLREF = REFERENCE(definitions.AllRefClass)
+    val SCALA_ALL    = REFERENCE(definitions.NothingClass)
+    val SCALA_ALLREF = REFERENCE(definitions.NullClass)
     val THROWABLE    = REFERENCE(definitions.ThrowableClass)
     
     val BoxesRunTime_equals = 
@@ -87,12 +82,13 @@ abstract class GenICode extends SubComponent  {
 
       case ClassDef(mods, name, _, impl) =>
         log("Generating class: " + tree.symbol.fullNameString)
+        val outerClass = ctx.clazz
         ctx setClass (new IClass(tree.symbol) setCompilationUnit unit)
         addClassFields(ctx, tree.symbol);
         classes += (tree.symbol -> ctx.clazz)
         unit.icode += ctx.clazz
-          gen(impl, ctx)
-        ctx setClass null
+        gen(impl, ctx)
+        ctx setClass outerClass
 
       // !! modules should be eliminated by refcheck... or not?
       case ModuleDef(mods, name, impl) =>
@@ -166,7 +162,7 @@ abstract class GenICode extends SubComponent  {
 
       tree match {
         case Assign(lhs @ Select(_, _), rhs) =>
-          if (isStaticSymbol(lhs.symbol)) {
+          if (lhs.symbol.isStaticMember) {
             val ctx1 = genLoad(rhs, ctx, toTypeKind(lhs.symbol.info))
             ctx1.bb.emit(STORE_FIELD(lhs.symbol, true), tree.pos)
             ctx1
@@ -405,6 +401,10 @@ abstract class GenICode extends SubComponent  {
           ctx.bb.close
           genLoad(rhs, ctx1, expectedType /*toTypeKind(tree.symbol.info.resultType)*/)
 
+        case ValDef(_, nme.THIS, _, _) =>
+          if (settings.debug.value) log("skipping trivial assign to _$this: " + tree)
+          ctx
+
         case ValDef(_, _, _, rhs) =>
           val sym = tree.symbol
           val local = ctx.method.addLocal(new Local(sym, toTypeKind(sym.info), false))
@@ -493,7 +493,8 @@ abstract class GenICode extends SubComponent  {
           ctx1.cleanups = oldcleanups
 
           if (saved) ctx1.bb.emit(LOAD_LOCAL(tmp))
-          ctx1.bb.emit(RETURN(returnedKind), tree.pos)
+          adapt(returnedKind, ctx.method.returnType, ctx, tree.pos)
+          ctx1.bb.emit(RETURN(ctx.method.returnType), tree.pos)
           ctx1.bb.enterIgnoreMode
           generatedType = expectedType
           ctx1
@@ -798,7 +799,7 @@ abstract class GenICode extends SubComponent  {
                 })), EmptyTree);
               if (settings.debug.value)
                 log("synchronized block end with block " + ctx1.bb +
-                    " closed=" + ctx1.bb.isClosed);
+                    " closed=" + ctx1.bb.closed);
               ctx1.exitSynchronized(monitor)
             } else if (scalaPrimitives.isCoercion(code)) {
               ctx1 = genLoad(receiver, ctx1, toTypeKind(receiver.tpe))
@@ -810,9 +811,9 @@ abstract class GenICode extends SubComponent  {
             ctx1
           } else {  // normal method call
             if (settings.debug.value)
-              log("Gen CALL_METHOD with sym: " + sym + " isStaticSymbol: " + isStaticSymbol(sym));
+              log("Gen CALL_METHOD with sym: " + sym + " isStaticSymbol: " + sym.isStaticMember);
             var invokeStyle =
-              if (isStaticSymbol(sym))
+              if (sym.isStaticMember)
                 Static(false)
               else if (sym.hasFlag(Flags.PRIVATE) || sym.isClassConstructor)
                 Static(true)
@@ -884,7 +885,7 @@ abstract class GenICode extends SubComponent  {
             assert(!tree.symbol.isPackageClass, "Cannot use package as value: " + tree)
             ctx.bb.emit(LOAD_MODULE(sym), tree.pos);
             ctx
-          } else if (isStaticSymbol(sym)) {
+          } else if (sym.isStaticMember) {
             ctx.bb.emit(LOAD_FIELD(sym, true), tree.pos)
             ctx
           } else {
@@ -1015,25 +1016,24 @@ abstract class GenICode extends SubComponent  {
 
       // emit conversion
       if (generatedType != expectedType)
-        adapt(generatedType, expectedType, resCtx, tree);
+        adapt(generatedType, expectedType, resCtx, tree.pos);
 
       resCtx
     }
 
-    private def adapt(from: TypeKind, to: TypeKind, ctx: Context, tree: Tree): Unit = {
+    private def adapt(from: TypeKind, to: TypeKind, ctx: Context, pos: Position): Unit = {
       if (!(from <:< to) && !(from == SCALA_ALLREF && to == SCALA_ALL)) {
         to match {
           case UNIT =>
-            ctx.bb.emit(DROP(from), tree.pos)
+            ctx.bb.emit(DROP(from), pos)
             if (settings.debug.value)
               log("Dropped an " + from);
 
           case _ =>
           if (settings.debug.value)
-            assert(from != UNIT, "Can't convert from UNIT to " + to + 
-                   tree + " at: " + (tree.pos));
+            assert(from != UNIT, "Can't convert from UNIT to " + to + " at: " + pos)
             assert(!from.isReferenceType && !to.isReferenceType, "type error: can't convert from " + from + " to " + to +" in unit "+this.unit)
-            ctx.bb.emit(CALL_PRIMITIVE(Conversion(from, to)), tree.pos);
+            ctx.bb.emit(CALL_PRIMITIVE(Conversion(from, to)), pos);
         }
       } else if (from == SCALA_ALL) {
         ctx.bb.emit(DROP(from))
@@ -1053,7 +1053,7 @@ abstract class GenICode extends SubComponent  {
     private def genLoadQualifier(tree: Tree, ctx: Context): Context =
       tree match {
         case Select(qualifier, _) =>
-          genLoad(qualifier, ctx, ANY_REF_CLASS) // !!
+          genLoad(qualifier, ctx, toTypeKind(qualifier.tpe)) 
         case _ =>
           abort("Unknown qualifier " + tree)
       }
@@ -1693,7 +1693,7 @@ abstract class GenICode extends SubComponent  {
           case t @ Apply(fun, args) if (t.symbol.isLabel && !boundLabels(t.symbol)) =>
             if (!labels.isDefinedAt(t.symbol)) {
               val oldLabel = t.symbol
-              val sym = method.newLabel(oldLabel.pos, unit.fresh.newName(oldLabel.name.toString))
+              val sym = method.newLabel(oldLabel.pos, unit.fresh.newName(oldLabel.pos, oldLabel.name.toString))
               sym.setInfo(oldLabel.tpe)
               labels(oldLabel) = sym
             }
@@ -1702,7 +1702,7 @@ abstract class GenICode extends SubComponent  {
             tree
             
           case t @ LabelDef(name, params, rhs) =>
-            val name1 = unit.fresh.newName(name.toString)
+            val name1 = unit.fresh.newName(t.pos, name.toString)
             if (!labels.isDefinedAt(t.symbol)) {
               val oldLabel = t.symbol
               val sym = method.newLabel(oldLabel.pos, name1)
@@ -1936,7 +1936,7 @@ abstract class GenICode extends SubComponent  {
 
       /** Make a fresh local variable. It ensures the 'name' is unique. */
       def makeLocal(pos: Position, tpe: Type, name: String): Local = {
-        val sym = method.symbol.newVariable(pos, unit.fresh.newName(name))
+        val sym = method.symbol.newVariable(pos, unit.fresh.newName(pos, name))
           .setInfo(tpe)
           .setFlag(Flags.SYNTHETIC)
         this.method.addLocal(new Local(sym, toTypeKind(tpe), false))

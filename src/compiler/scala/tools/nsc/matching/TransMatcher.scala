@@ -21,7 +21,7 @@ trait TransMatcher { self: transform.ExplicitOuter with PatternNodes with Parall
 
   import collection.mutable.ListBuffer
 
-  var cunit: CompilationUnit = _
+  var cunit: CompilationUnit = _ // memory leak?
   def fresh = cunit.fresh
   var nPatterns = 0
   var resultType: Type = _
@@ -182,7 +182,7 @@ trait TransMatcher { self: transform.ExplicitOuter with PatternNodes with Parall
       }
       
       implicit val rep = new RepFactory(handleOuter)
-      try {
+//      try {
         val tmps = new ListBuffer[Symbol]
         val vds  = new ListBuffer[Tree]
         var root:Symbol = newVar(selector.pos, selector.tpe)
@@ -204,7 +204,7 @@ trait TransMatcher { self: transform.ExplicitOuter with PatternNodes with Parall
             var as = args
             while(as ne Nil) {
               val ti = as.head
-              val v = newVar(ti.pos, cunit.fresh.newName("tp"), selector.tpe.typeArgs(i))
+              val v = newVar(ti.pos, cunit.fresh.newName(ti.pos, "tp"), selector.tpe.typeArgs(i))
               if (!doCheckExhaustive)
                 v.setFlag(symtab.Flags.TRANS_FLAG)
               vds  += typedValDef(v, ti)
@@ -237,10 +237,10 @@ trait TransMatcher { self: transform.ExplicitOuter with PatternNodes with Parall
         }
         dfatree = rep.cleanup(dfatree)
         resetTrav.traverse(dfatree)
-        return dfatree
-      } catch {
-        case e => e.printStackTrace(); throw new FatalError(e.getMessage())
-      }
+        dfatree
+//      } catch {
+//        case e => e.printStackTrace(); throw new FatalError(e.getMessage())
+//      }
     }
   }
                     

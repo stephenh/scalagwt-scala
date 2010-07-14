@@ -65,7 +65,7 @@ with JavaSourceAnalysis
             lhs
           } else if (isNothing(rhs)) {
             (Block(List(lhs), rhs)
-              copyAttrs tree setType definitions.AllClass.tpe)
+              copyAttrs tree setType definitions.NothingClass.tpe)
           } else {
             tree
           }

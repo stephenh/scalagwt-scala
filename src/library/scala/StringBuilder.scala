@@ -15,16 +15,17 @@ import Predef._
 
 /** <p>
  *    A mutable sequence of characters.  This class provides an API compatible
- *    with <code>java.lang.StringBuilder</code>, but with no guarantee of
- *    synchronization.
+ *    with <a class="java/lang/StringBuilder" href="" target="_top">
+ *    <code>java.lang.StringBuilder</code></a>.
  *  </p>
  *
  *  @author Stephane Micheloud
  *  @version 1.0
  */
+@serializable
 @SerialVersionUID(0 - 8525408645367278351L)
 final class StringBuilder(initCapacity: Int, private val initValue: String)
-extends (Int => Char) with Proxy {
+      extends (Int => Char) {
   if (initCapacity < 0) throw new IllegalArgumentException
   if (initValue eq null) throw new NullPointerException
 
@@ -51,8 +52,6 @@ extends (Int => Char) with Proxy {
   def this(str: String) = this(16, str)
 
   append(initValue)
-
-  def self = this
 
   def toArray: Array[Char] = value
 
@@ -245,7 +244,7 @@ extends (Int => Char) with Proxy {
     if (len > 0) {
       val newCount = count + len
       if (newCount > value.length) expandCapacity(newCount)
-      compat.Platform.arraycopy(str.toCharArray, 0, value, count, len)
+      str.getChars(0, len, value, count)
       count = newCount
     }
     this
@@ -357,12 +356,18 @@ extends (Int => Char) with Proxy {
     this
   }
 
+  def append(x: Byte): StringBuilder =
+    append(String.valueOf(x))
+
   def append(x: Char): StringBuilder = {
     val newCount = count + 1
     if (newCount > value.length) expandCapacity(newCount)
     value(count) = x; count += 1
     this
   }
+
+  def append(x: Short): StringBuilder =
+    append(String.valueOf(x))
 
   def append(x: Int): StringBuilder =
     append(String.valueOf(x))
@@ -426,7 +431,7 @@ extends (Int => Char) with Proxy {
     if (newCount > value.length) expandCapacity(newCount)
 
     compat.Platform.arraycopy(value, end, value, start + len, count - end)
-    compat.Platform.arraycopy(str.toCharArray, 0, value, start, len)
+    str.getChars(0, len, value, start)  
     count = newCount
     this
   }
@@ -505,7 +510,7 @@ extends (Int => Char) with Proxy {
     val newCount = count + len
     if (newCount > value.length) expandCapacity(newCount)
     compat.Platform.arraycopy(value, at, value, at + len, count - at)
-    compat.Platform.arraycopy(str.toCharArray, 0, value, at, len)
+    str.getChars(0, len, value, at)
     count = newCount
     this
   }
@@ -558,6 +563,22 @@ extends (Int => Char) with Proxy {
     insert(at, String.valueOf(x))
 
   /** <p>
+   *    Inserts the string representation of the <code>Byte</code> argument
+   *    into this sequence.
+   *  </p>
+   *  <p>
+   *    The offset argument must be greater than or equal to 0, and less than
+   *    or equal to the length of this sequence.
+   *  </p>
+   *
+   *  @param  at  the offset position.
+   *  @param  x   a <code>Byte</code> value.
+   *  @return     a reference to this object.
+   */
+  def insert(at: Int, x: Byte): StringBuilder =
+    insert(at, String.valueOf(x))
+
+  /** <p>
    *    Inserts the string representation of the <code>Char</code> argument
    *    into this sequence.
    *  </p>
@@ -580,6 +601,22 @@ extends (Int => Char) with Proxy {
     count = newCount
     this
   }
+
+  /** <p>
+   *    Inserts the string representation of the <code>Short</code> argument
+   *    into this sequence.
+   *  </p>
+   *  <p>
+   *    The offset argument must be greater than or equal to 0, and less than
+   *    or equal to the length of this sequence.
+   *  </p>
+   *
+   *  @param  at  the offset position.
+   *  @param  x   a <code>Short</code> value.
+   *  @return     a reference to this object.
+   */
+  def insert(at: Int, x: Short): StringBuilder =
+    insert(at, String.valueOf(x))
 
   /** <p>
    *    Inserts the string representation of the <code>Int</code> argument
@@ -904,5 +941,12 @@ object StringBuilder {
       if (!outerWhile) return start - sourceOffset + 1
     }
     -1
+  }
+
+  implicit def toCharSequence(sb: StringBuilder): java.lang.CharSequence = new java.lang.CharSequence {
+    def length: Int = sb.length
+    def charAt(index: Int): Char = sb.charAt(index)
+    def subSequence(start: Int, end: Int): java.lang.CharSequence = sb.substring(start, end)
+    override def toString: String = sb.toString
   }
 }

@@ -13,7 +13,7 @@ import scala.collection.immutable.{Map, ListMap}
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 import scala.tools.nsc.io.AbstractFile
 import scala.tools.nsc.util.{Position, NoPosition}
-
+ 
 
 /** This abstract class implements a class file parser.
  *
@@ -50,13 +50,14 @@ abstract class ClassfileParser {
 
   def parse(file: AbstractFile, root: Symbol) = try {
     def handleError(e: Exception) = {
-      if (settings.debug.value) e.printStackTrace() //debug
+      if (e.isInstanceOf[AssertionError] || settings.debug.value)
+        e.printStackTrace()
       throw new IOException("class file '" + in.file + "' is broken\n(" + {
         if (e.getMessage() != null) e.getMessage()
         else e.getClass.toString
       } + ")")
     }
-    assert(!busy)
+    assert(!busy, "internal error: illegal class file dependency")
     busy = true
     /*root match {
       case cs: ClassSymbol =>
@@ -328,12 +329,9 @@ abstract class ClassfileParser {
     if ((sflags & DEFERRED) != 0) sflags = sflags & ~DEFERRED | ABSTRACT
     val c = pool.getClassSymbol(in.nextChar)
     if (c != clazz) {
-      assert(true)
       if ((clazz eq NoSymbol) && (c ne NoSymbol)) { // XXX: needed for build compiler, so can't protect with inIDE
-        assert(true)
         clazz = c
       } else if (inIDE) {
-        assert(true)
         Console.println("WRONG CLASS: expected: " + clazz + " found " + c)
       } else throw new IOException("class file '" + in.file + "' contains wrong " + c)
     }
@@ -422,12 +420,13 @@ abstract class ClassfileParser {
         sawPrivateConstructor = true
       in.skip(2); skipAttributes()
     } else {
-      if ((jflags & JAVA_ACC_BRIDGE) != 0) sflags = sflags | BRIDGE //PRIVATE
+      if ((jflags & JAVA_ACC_BRIDGE) != 0) 
+        sflags |= BRIDGE
       if ((sflags & PRIVATE) != 0 && global.settings.XO.value) {
         in.skip(4); skipAttributes()
       } else {
         val name = pool.getName(in.nextChar)
-        var info = pool.getType(in.nextChar)
+        var  info = pool.getType(in.nextChar)
         if (name == nme.CONSTRUCTOR)
           info match {
             case MethodType(formals, restpe) =>
@@ -438,11 +437,27 @@ abstract class ClassfileParser {
           .newMethod(NoPosition, name).setFlag(sflags).setInfo(info)
         setPrivateWithin(sym, jflags)
         parseAttributes(sym, info)
+        if ((jflags & JAVA_ACC_VARARGS) != 0) {
+          sym.setInfo(arrayToRepeated(sym.info))
+        }
         getScope(jflags).enter(sym)
       }
     }
   }
 
+  /** Convert repeated parameters to arrays if they occur as part of a Java method 
+   */
+  private def arrayToRepeated(tp: Type): Type = tp match {
+    case MethodType(formals, rtpe) =>
+      assert(formals.last.typeSymbol == definitions.ArrayClass)
+      MethodType(
+        formals.init ::: 
+        List(appliedType(definitions.RepeatedParamClass.typeConstructor, List(formals.last.typeArgs.head))),
+        rtpe)
+    case PolyType(tparams, rtpe) =>
+      PolyType(tparams, arrayToRepeated(rtpe))
+  }
+  
   private def sigToType(sym: Symbol, sig: Name): Type = {
     var index = 0
     val end = sig.length
@@ -451,10 +466,6 @@ abstract class ClassfileParser {
       assert(sig(index) == ch)
       index += 1
     }
-    def objToAny(tp: Type): Type =
-      if (!global.phase.erasedTypes && tp.typeSymbol == definitions.ObjectClass)
-        definitions.AnyClass.tpe
-      else tp
     def subName(isDelimiter: Char => Boolean): Name = {
       val start = index
       while (!isDelimiter(sig(index))) { index += 1 }
@@ -485,11 +496,11 @@ abstract class ClassfileParser {
                   case variance @ ('+' | '-' | '*') =>
                     index += 1
                     val bounds = variance match {
-                      case '+' => mkTypeBounds(definitions.AllClass.tpe,
+                      case '+' => mkTypeBounds(definitions.NothingClass.tpe,
                                                sig2type(tparams))
                       case '-' => mkTypeBounds(sig2type(tparams),
                                                definitions.AnyClass.tpe)
-                      case '*' => mkTypeBounds(definitions.AllClass.tpe,
+                      case '*' => mkTypeBounds(definitions.NothingClass.tpe,
                                                definitions.AnyClass.tpe)
                     }
                     val newtparam = makeExistential("?"+i, sym, bounds)
@@ -520,7 +531,7 @@ abstract class ClassfileParser {
           var tpe = processClassType(classSym.tpe)
           while (sig(index) == '.') {
             accept('.')
-            val name = subName(c => c == ';' || c == '.').toTypeName
+            val name = subName(c => c == ';' || c == '<' || c == '.').toTypeName
             val clazz = tpe.member(name)
             assert(clazz.isAliasType, tpe)
             tpe = processClassType(clazz.tpe)
@@ -563,12 +574,15 @@ abstract class ClassfileParser {
           if (sig(index) != ':') // guard against empty class bound
             ts += objToAny(sig2type(tparams))
         }
-        s.setInfo(mkTypeBounds(definitions.AllClass.tpe,
+        s.setInfo(mkTypeBounds(definitions.NothingClass.tpe,
                                intersectionType(ts.toList, sym)))
         newTParams += s
       }
       accept('>')
     }
+    val ownTypeParams = newTParams.toList
+    if (!ownTypeParams.isEmpty)
+      sym.setInfo(new TypeParamsType(ownTypeParams))
     val tpe =
       if ((sym eq null) || !sym.isClass)
         sig2type(tparams)
@@ -580,9 +594,12 @@ abstract class ClassfileParser {
         }
         ClassInfoType(parents.toList, instanceDefs, sym)
       }
-    polyType(newTParams.toList, tpe)
-  } // polySigToType
+    polyType(ownTypeParams, tpe)
+  } // sigToType
 
+  class TypeParamsType(override val typeParams: List[Symbol]) extends LazyType {
+    override def complete(sym: Symbol) { throw new AssertionError("cyclic type dereferencing") }
+  }
 
   def parseAttributes(sym: Symbol, symtype: Type) {
     def convertTo(c: Constant, pt: Type): Constant = {
@@ -601,7 +618,7 @@ abstract class ClassfileParser {
             val sig = pool.getExternalName(in.nextChar)
             val newType = sigToType(sym, sig)
             sym.setInfo(newType)
-            if (settings.debug.value)
+            if (settings.debug.value && settings.verbose.value)
               println("" + sym + "; signature = " + sig + " type = " + newType)
             hasMeta = true
           } else
@@ -638,8 +655,10 @@ abstract class ClassfileParser {
             if ((sourceFile0 ne null) && (clazz.sourceFile eq null)) {
               clazz.sourceFile = sourceFile0
             }
-            if (!inIDE || staticModule.moduleClass != NoSymbol) 
+            // XXX: removing only in IDE test. Also needs to be tested in the build compiler.
+            if (staticModule.moduleClass != NoSymbol) {
               staticModule.moduleClass.sourceFile = clazz.sourceFile
+            }
           }
         case nme.AnnotationDefaultATTR =>
           sym.attributes =
@@ -688,29 +707,31 @@ abstract class ClassfileParser {
     }
 
     /** Parse and return a single annotation.  If it is malformed,
-     *  throw an exception.  If it contains a nested annotation,
-     *  return None.
+     *  or it contains a nested annotation, return None.
      */
-    def parseAnnotation(attrNameIndex: Char): Option[AnnotationInfo] = {
-      val attrType = pool.getType(attrNameIndex)
-      val nargs = in.nextChar
-      val nvpairs = new ListBuffer[(Name,AnnotationArgument)]
-      var nestedAnnot = false  // if a nested annotation is seen,
-                               // then skip this annotation
-      for (i <- 0 until nargs) {
-        val name = pool.getName(in.nextChar)
-	val argConst = parseTaggedConstant
-	if (argConst.tag == AnnotationTag)
-	  nestedAnnot = true
-	else
-          nvpairs += ((name, new AnnotationArgument(argConst)))
-      }
+    def parseAnnotation(attrNameIndex: Char): Option[AnnotationInfo] = 
+      try {
+        val attrType = pool.getType(attrNameIndex)
+        val nargs = in.nextChar
+        val nvpairs = new ListBuffer[(Name,AnnotationArgument)]
+        var nestedAnnot = false  // if a nested annotation is seen,
+                                 // then skip this annotation
+        for (i <- 0 until nargs) {
+          val name = pool.getName(in.nextChar)
+          val argConst = parseTaggedConstant
+          if (argConst.tag == AnnotationTag)
+            nestedAnnot = true
+          else
+            nvpairs += ((name, new AnnotationArgument(argConst)))
+        }
 
-      if (nestedAnnot)
-	None
-      else
-	Some(AnnotationInfo(attrType, List(), nvpairs.toList))
-    }
+        if (nestedAnnot)
+          None
+        else
+          Some(AnnotationInfo(attrType, List(), nvpairs.toList))
+      } catch {
+        case ex: Throwable => None // ignore malformed annotations ==> t1135
+      }
 
     /** Parse a sequence of annotations and attach them to the
      *  current symbol sym.
@@ -756,6 +777,7 @@ abstract class ClassfileParser {
           if ((jflags & JAVA_ACC_STATIC) != 0) {
             val innerVal = staticModule.newValue(NoPosition, pool.getName(nameIndex).toTermName)
               .setInfo(pool.getClassSymbol(innerIndex).linkedModuleOfClass.moduleClass.thisType)
+              .setFlag(JAVA | MODULE)
             staticDefs.enter(innerVal)
           }
         }

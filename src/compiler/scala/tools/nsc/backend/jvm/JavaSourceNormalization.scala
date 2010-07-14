@@ -49,13 +49,13 @@ with JavaSourceAnalysis
           Apply(mkAttributedSelect(mkAttributedRef(JavaSourceMiscModule), JavaSourceMisc_hiddenThrow),
                 List(mkAttributedRef(exSym))) setSymbol JavaSourceMisc_hiddenThrow
         val notReachedThrow =
-          Throw(New(TypeTree(RuntimeExceptionClass.tpe), List(List(Literal("not reached") /* TODO(spoon): setType string*/)))) setType AllClass.tpe
+          Throw(New(TypeTree(RuntimeExceptionClass.tpe), List(List(Literal("not reached") /* TODO(spoon): setType string*/)))) setType NothingClass.tpe
         
         CaseDef(Bind(exSym, Typed(Ident(nme.WILDCARD), TypeTree(excType))),
                 EmptyTree,
                 Block(
                   List(hiddenThrow, notReachedThrow),
-                  unitLiteral) setType AllClass.tpe)
+                  unitLiteral) setType NothingClass.tpe)
       }
       Try(body, catches, EmptyTree) setType body.tpe
     }
@@ -93,7 +93,7 @@ with JavaSourceAnalysis
       (explicitBlock(tree) : @unchecked) match {
         case tree@EmptyTree => tree
         case tree@Block(_, _:Return) => tree
-        case tree if isNothing(tree) => mkBlock(stats, tree)
+        case tree@Block(_, exp) if isNothing(exp) => tree
         case tree@Block(stats, exp) => mkBlock(stats, mkReturn(exp))
       }
     else
@@ -104,8 +104,8 @@ with JavaSourceAnalysis
   def mkBlock(stats: List[Tree], exp: Tree) =
     Block(stats, exp) setType (
      // set type to Nothing if any stat has type nothing.
-     if (stats exists (t => isNothing(t))) definitions.AllClass.tpe else exp.tpe)
-  def mkReturn(exp: Tree) = Return(exp) setType AllClass.tpe
+     if (stats exists (t => isNothing(t))) definitions.NothingClass.tpe else exp.tpe)
+  def mkReturn(exp: Tree) = Return(exp) setType NothingClass.tpe
   
   val unitLiteral = Literal(Constant()) setType UnitClass.tpe
 }

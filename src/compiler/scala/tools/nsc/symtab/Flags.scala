@@ -37,6 +37,7 @@ object Flags extends Enumeration {
   final val BYNAMEPARAM   = 0x00010000    // parameter is by name
   final val CONTRAVARIANT = 0x00020000    // symbol is a contravariant type variable
   final val LABEL         = 0x00020000    // method symbol is a label. Set by TailCall
+  final val DEFAULTINIT   = 0x00020000    // field is initialized to the default value (used by checkinit)
   final val INCONSTRUCTOR = 0x00020000    // class symbol is defined in this/superclass
                                           // constructor.
   final val ABSOVERRIDE   = 0x00040000    // combination of abstract & override
@@ -58,7 +59,8 @@ object Flags extends Enumeration {
   final val PARAMACCESSOR = 0x20000000    // for value definitions: is an access method
                                           // for a final val parameter
                                           // for parameters: is a val parameter
-  final val MODULEVAR     = 0x40000000    // for term symbols: is the variable caching a module value
+  final val MODULEVAR     = 0x40000000    // for variables: is the variable caching a module value
+  final val SYNTHETICMETH = 0x40000000    // for methods: synthetic method, but without SYNTHETIC flag
   final val MONOMORPHIC   = 0x40000000    // for type symbols: does not have type parameters
   final val LAZY          = 0x80000000L   // symbol is a lazy val. can't have MUTABLE unless transformed by typer
 
@@ -86,6 +88,7 @@ object Flags extends Enumeration {
 
   // late flags (set by a transformer phase)
   final val latePRIVATE   = (PRIVATE: Long) << LateShift
+  final val lateABSTRACT  = (ABSTRACT: Long) << LateShift
   final val lateDEFERRED  = (DEFERRED: Long) << LateShift
   final val lateINTERFACE = (INTERFACE: Long) << LateShift
   final val lateMODULE    = (MODULE: Long) << LateShift
@@ -99,9 +102,6 @@ object Flags extends Enumeration {
   final val notABSTRACT   = (ABSTRACT: Long) << AntiShift
   final val notOVERRIDE   = (OVERRIDE: Long) << AntiShift
   final val notMETHOD     = (METHOD: Long) << AntiShift
-
-  final val STATICMODULE  = lateMODULE
-  final val STATICMEMBER  = notOVERRIDE
 
 
   // masks
@@ -190,7 +190,7 @@ object Flags extends Enumeration {
       case DEPRECATED    => "<deprecated>"
 
       case COVARIANT     => "<covariant/captured/byname>"
-      case CONTRAVARIANT => "<contravariant/label/inconstr>"
+      case CONTRAVARIANT => "<contravariant/label/inconstr/defaultinit>"
       case ABSOVERRIDE   => "abstract override"
       case LOCAL         => "<local>"
 

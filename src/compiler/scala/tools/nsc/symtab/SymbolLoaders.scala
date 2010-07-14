@@ -5,7 +5,7 @@
 // $Id$
 
 package scala.tools.nsc.symtab
-
+ 
 import java.io.{File, IOException} 
  
 import ch.epfl.lamp.compiler.msil.{Type => MSILType, Attribute => MSILAttribute}
@@ -55,7 +55,6 @@ abstract class SymbolLoaders {
           assert(root.rawInfo == this)
           if (clazz != NoSymbol && !clazz.rawInfo.isInstanceOf[SymbolLoader]) {
             // bail
-            assert(true)
             root.setInfo(ErrorType)
             Console.println("ditch " + root)
             return
@@ -64,14 +63,12 @@ abstract class SymbolLoaders {
           val module = root.linkedModuleOfClass
           assert(root.rawInfo == this)
           if (module != NoSymbol && !module.rawInfo.isInstanceOf[SymbolLoader]) {
-            assert(true)
             root.setInfo(ErrorType)
             Console.println("ditch " + root)
             return
           }
         } else {
           assert(root.isModule)
-          assert(true)
         }
       }
       try {
@@ -111,8 +108,9 @@ abstract class SymbolLoaders {
 
   /** Load contents of a package
    */
-  class PackageLoader(directory: global.classPath0.Context) extends SymbolLoader {
+  class PackageLoader(val directory: global.classPath0.Context) extends SymbolLoader {
 
+    // XXX: for IDE.
     protected def sourceString = directory.toString()
 
     protected def kindString: String = "directory path"
@@ -122,7 +120,7 @@ abstract class SymbolLoaders {
 
     protected def checkSource(name: String, source: AbstractFile): Boolean = true
 
-    protected var root: Symbol = _
+    var root: Symbol = _
 
     def enterPackage(name: String, completer: SymbolLoader) {
       if (inIDE && root.info.decls.lookup(newTermName(name)) != NoSymbol) {
@@ -155,10 +153,10 @@ abstract class SymbolLoaders {
         name = name.substring(0, name indexOf '$')
       }
     }
+    lazy val scope = newPackageScope(computeDepends(this))
     protected def doComplete(root: Symbol) {
       assert(root.isPackageClass, root)
       this.root = root
-      val scope = newScope
       root.setInfo(new PackageClassInfoType(scope, root, this))
       refresh
     }
@@ -170,7 +168,7 @@ abstract class SymbolLoaders {
 
       val classes  = new HashMap[String, global.classPath0.Context]
       val packages = new HashMap[String, global.classPath0.Context]
-      for (dir <- directory.entries) if (dir.location ne null) {
+      for (dir <- directory.entries) if ((dir.location ne null) && (!inIDE || dir.location.isDirectory)) {
         for (file <- dir.location) {
           if (file.isDirectory && directory.validPackage(file.name) && !packages.isDefinedAt(file.name))
             packages(file.name) = directory.find(file.name, true);
@@ -276,13 +274,13 @@ abstract class SymbolLoaders {
   }
   // IDE hook.
   protected def completeClassfile(root : Symbol, loader : ClassfileLoader)(f : => Unit) : Unit = f
+  import scala.collection.jcl
+  // incremental builder hook
+  protected def computeDepends(loader : PackageLoader) : PackageScopeDependMap = {
+    null
+  }
 
   class ClassfileLoader(val classFile: AbstractFile, override val sourceFile: AbstractFile, sourcePath0: AbstractFile) extends SymbolLoader {
-    if (sourcePath0 == null) {
-      assert(true)
-      assert(true)
-    }
-    
     private object classfileParser extends ClassfileParser {
       val global: SymbolLoaders.this.global.type = SymbolLoaders.this.global
       override def sourcePath = sourcePath0 /* could be null */

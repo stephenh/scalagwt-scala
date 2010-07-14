@@ -62,11 +62,11 @@ trait AnnotationInfos {
 
     @deprecated
     lazy val tree = {
-      object reifiers extends Reifiers {
+      object reifiers extends {
 	val symbols: AnnotationInfos.this.type = AnnotationInfos.this
-      }
+      } with Reifiers
 
-      reifiers.reify(intTree)
+      reifiers.reify(intTree) 
     }
 
     val constant: Option[Constant] = tree2cons(intTree)

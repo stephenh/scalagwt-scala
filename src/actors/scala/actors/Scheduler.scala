@@ -8,7 +8,6 @@
 
 // $Id$
 
-
 package scala.actors
 
 import compat.Platform
@@ -22,36 +21,44 @@ import scala.collection.mutable.{ArrayBuffer, Buffer, HashMap, Queue, Stack, Has
  * The <code>Scheduler</code> object is used by
  * <code>Actor</code> to execute tasks of an execution of an actor.
  *
- * @version 0.9.10
+ * @version 0.9.18
  * @author Philipp Haller
  */
-object Scheduler {
-  private var sched: IScheduler =
-    {
-      var s: IScheduler = new FJTaskScheduler2
-      s.start()
-      s
-    }
+object Scheduler extends IScheduler {
+
+  private var sched: IScheduler = {
+    val s = new FJTaskScheduler2
+    s.start()
+    s
+  }
 
   def impl = sched
   def impl_= (scheduler: IScheduler) = {
     sched = scheduler
-    sched.start()
   }
 
   private var tasks: LinkedQueue = null
   private var pendingCount = 0
 
-  def snapshot(): Unit = {
-    tasks = sched.snapshot()
-    pendingCount = sched.asInstanceOf[FJTaskScheduler2].getPendingCount
-    sched.shutdown()
-  }
+  /* Assumes <code>sched</code> holds an instance
+   * of <code>FJTaskScheduler2</code>.
+   */
+  def snapshot(): Unit =
+    if (sched.isInstanceOf[FJTaskScheduler2]) {
+      val fjts = sched.asInstanceOf[FJTaskScheduler2]
+      tasks = fjts.snapshot()
+      pendingCount = ActorGC.getPendingCount
+      fjts.shutdown()
+    } else
+      error("snapshot operation not supported.")
 
+  /* Creates an instance of class <code>FJTaskScheduler2</code>
+   * and submits <code>tasks</code> for execution.
+   */
   def restart(): Unit = synchronized {
     sched = {
-      var s: IScheduler = new FJTaskScheduler2
-      s.asInstanceOf[FJTaskScheduler2].setPendingCount(pendingCount)
+      val s = new FJTaskScheduler2
+      ActorGC.setPendingCount(pendingCount)
       s.start()
       s
     }
@@ -62,43 +69,32 @@ object Scheduler {
     tasks = null
   }
 
-  def start(task: Runnable) = sched.start(task)
-
-  def execute(task: Runnable) = {
+  def execute(task: Runnable) {
     val t = currentThread
     if (t.isInstanceOf[FJTaskRunner]) {
       val tr = t.asInstanceOf[FJTaskRunner]
       tr.push(new FJTask {
-        def run() {
-          task.run()
-        }
+        def run() { task.run() }
       })
-    } else sched.execute(task)
+    } else
+      sched execute task
   }
 
-  def tick(a: Actor) = sched.tick(a)
-  def terminated(a: Actor) = sched.terminated(a)
-  def pendReaction: Unit = sched.pendReaction
-
-  private val termHandlers = new HashMap[Actor, () => Unit]
-  def onTerminate(a: Actor)(f: => Unit) {
-    termHandlers += (a -> (() => f))
+  def execute(fun: => Unit) {
+    val t = currentThread
+    if (t.isInstanceOf[FJTaskRunner]) {
+      val tr = t.asInstanceOf[FJTaskRunner]
+      tr.push(new FJTask {
+        def run() { fun }
+      })
+    } else
+      sched execute { fun }
   }
 
-  def unPendReaction(a: Actor) = synchronized {
-    // execute registered termination handler (if any)
-    termHandlers.get(a) match {
-      case Some(handler) =>
-        handler()
-        // remove mapping
-        termHandlers -= a
-      case None =>
-        // do nothing
-    }
-
-    // notify scheduler
-    sched.unPendReaction
-  }
+  /* This method is used to notify the scheduler
+   * of library activity by the argument Actor.
+   */
+  def tick(a: Actor) = sched tick a
 
   def shutdown() = sched.shutdown()
 
@@ -109,25 +105,40 @@ object Scheduler {
 
 
 /**
- * This abstract class provides a common interface for all
- * schedulers used to execute actor tasks.
+ * The <code>IScheduler</code> trait provides a common interface
+ * for all schedulers used to execute actor tasks.
  *
- * @version 0.9.8
+ * Subclasses of <code>Actor</code> that override its
+ * <code>scheduler</code> member value must provide
+ * an implementation of the <code>IScheduler</code>
+ * trait.
+ *
+ * @version 0.9.18
  * @author Philipp Haller
  */
 trait IScheduler {
-  def start(): Unit
 
-  def start(task: Runnable): Unit
+  /** Submits a closure for execution.
+   *
+   *  @param  fun  the closure to be executed
+   */
+  def execute(fun: => Unit): Unit
+
+  /** Submits a <code>Runnable</code> for execution.
+   *
+   *  @param  task  the task to be executed
+   */
   def execute(task: Runnable): Unit
 
-  def getTask(worker: WorkerThread): Runnable
+  /** Notifies the scheduler about activity of the
+   *  executing actor.
+   *
+   *  @param  a  the active actor
+   */
   def tick(a: Actor): Unit
-  def terminated(a: Actor): Unit
-  def pendReaction: Unit
-  def unPendReaction: Unit
 
-  def snapshot(): LinkedQueue
+  /** Shuts down the scheduler.
+   */
   def shutdown(): Unit
 
   def onLockup(handler: () => Unit): Unit
@@ -141,50 +152,36 @@ trait IScheduler {
 }
 
 
+trait WorkerThreadScheduler extends IScheduler {
+  /**
+   *  @param  worker the worker thread executing tasks
+   *  @return        the task to be executed
+   */
+  def getTask(worker: WorkerThread): Runnable
+}
+
+
 /**
  * This scheduler executes the tasks of an actor on a single
  * thread (the current thread).
  *
- * @version 0.9.9
+ * @version 0.9.18
  * @author Philipp Haller
  */
 class SingleThreadedScheduler extends IScheduler {
-  def start() {}
-
-  val taskQ = new scala.collection.mutable.Queue[Runnable]
-
-  def start(task: Runnable) {
-    // execute task immediately on same thread
-    task.run()
-    while (taskQ.length > 0) {
-      val nextTask = taskQ.dequeue
-      nextTask.run()
-    }
-  }
 
   def execute(task: Runnable) {
-    val a = Actor.tl.get.asInstanceOf[Actor]
-    if ((null ne a) && a.isInstanceOf[ActorProxy]) {
-      // execute task immediately on same thread
-      task.run()
-      while (taskQ.length > 0) {
-        val nextTask = taskQ.dequeue
-        nextTask.run()
-      }
-    } else {
-      // queue task for later execution
-      taskQ += task
-    }
+    task.run()
   }
 
-  def getTask(worker: WorkerThread): Runnable = null
+  def execute(fun: => Unit): Unit =
+    execute(new Runnable {
+      def run() { fun }
+    })
+
   def tick(a: Actor) {}
-  def terminated(a: Actor) {}
-  def pendReaction {}
-  def unPendReaction {}
 
   def shutdown() {}
-  def snapshot(): LinkedQueue = { null }
 
   def onLockup(handler: () => Unit) {}
   def onLockup(millis: Int)(handler: () => Unit) {}
@@ -193,7 +190,7 @@ class SingleThreadedScheduler extends IScheduler {
 
 
 /**
- * The <code>QuickException</code> class is used to manage control flow
+ * The <code>QuitException</code> class is used to manage control flow
  * of certain schedulers and worker threads.
  *
  * @version 0.9.8
@@ -206,6 +203,7 @@ private[actors] class QuitException extends Throwable {
    */
   override def fillInStackTrace(): Throwable = this
 }
+
 
 /**
  * <p>
@@ -256,10 +254,10 @@ private[actors] class QuitException extends Throwable {
  *   execution. QED
  * </p>
  *
- * @version 0.9.8
+ * @version 0.9.18
  * @author Philipp Haller
  */
-class WorkerThread(sched: IScheduler) extends Thread {
+class WorkerThread(sched: WorkerThreadScheduler) extends Thread {
   private var task: Runnable = null
   private[actors] var running = true
 
@@ -280,7 +278,7 @@ class WorkerThread(sched: IScheduler) extends Thread {
           }
         }
         this.synchronized {
-          task = sched.getTask(this)
+          task = sched getTask this
 
           while (task eq null) {
             try {

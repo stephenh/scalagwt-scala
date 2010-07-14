@@ -17,6 +17,7 @@ import java.lang.{Thread, SecurityException}
 import java.net.{InetAddress, ServerSocket, Socket, UnknownHostException, URLClassLoader}
 
 import scala.collection.mutable.HashMap
+import scala.util.Random
 
 /* Object TcpService.
  *
@@ -35,6 +36,7 @@ object TcpService {
         val service = new TcpService(port, cl)
         ports += Pair(port, service)
         service.start()
+        Debug.info("created service at "+service.node)
         service
     }
 
@@ -122,7 +124,12 @@ class TcpService(port: Int, cl: ClassLoader) extends Thread with Service {
 
   def terminate() {
     shouldTerminate = true
-    new Socket(internalNode.address, internalNode.port)
+    try {
+      new Socket(internalNode.address, internalNode.port)
+    } catch {
+      case ce: java.net.ConnectException =>
+        Debug.info(this+": caught "+ce)
+    }
   }
 
   private var shouldTerminate = false

@@ -291,17 +291,10 @@ trait Iterable[+A] {
    *  @param  p the predicate
    *  @return   the index of the first element satisfying <code>p</code>,
    *            or -1 if such an element does not exist
+   *  @deprecated  Method is pushed to <code>Seq</code>, will be removed from <code>Iterable</code>.
    */
-  def findIndexOf(p: A => Boolean): Int = {
-    val it = elements
-    var i = 0
-    while (it.hasNext)
-      if (p(it.next))
-        return i
-      else 
-        i = i + 1
-    return -1
-  }
+  @deprecated def findIndexOf(p: A => Boolean): Int =
+    elements.findIndexOf(p)
 
   /** Returns index of the last element satisying a predicate, or -1.
    *
@@ -330,20 +323,10 @@ trait Iterable[+A] {
    *  @return the index in this sequence of the first occurence of the
    *          specified element, or -1 if the sequence does not contain
    *          this element.
+   *  @deprecated  Method is pushed to <code>Seq</code>, will be removed from <code>Iterable</code>.
    */
-  def indexOf[B >: A](elem: B): Int = {
-    val it = elements
-    var i = 0
-    var found = false
-    while (!found && it.hasNext) {
-      if (it.next == elem) {
-        found = true
-      } else {
-        i = i + 1
-      }
-    }
-    if (found) i else -1
-  }
+  @deprecated def indexOf[B >: A](elem: B): Int =
+    elements.indexOf(elem)
 
   /** Combines the elements of this iterable object together using the binary
    *  function <code>f</code>, from left to right, and starting with
@@ -388,7 +371,7 @@ trait Iterable[+A] {
    *          <code>a<sub>0</sub>, a<sub>1</sub>, ..., a<sub>n</sub></code>.
    *  @throws Predef.UnsupportedOperationException if the iterable object is empty.
    */
-  def reduceLeft[B >: A](op: (B, B) => B): B = elements.reduceLeft(op)
+  def reduceLeft[B >: A](op: (B, A) => B): B = elements.reduceLeft(op)
 
 /** Combines the elements of this iterable object together using the binary
    *  operator <code>op</code>, from right to left
@@ -401,7 +384,7 @@ trait Iterable[+A] {
    *
    *  @throws Predef.UnsupportedOperationException if the iterator is empty.
    */
-  def reduceRight[B >: A](op: (B, B) => B): B = elements.reduceRight(op)
+  def reduceRight[B >: A](op: (A, B) => B): B = elements.reduceRight(op)
 
   /** Copy all elements to a given buffer 
    *  @note Will not terminate for infinite-sized collections.
@@ -427,13 +410,19 @@ trait Iterable[+A] {
   }
 
   /**
-   *  Create a fresh list with all the elements of this iterable object.
+   *  Returns a list containing all of the elements in this iterable object.
    *  @note Will not terminate for infinite-sized collections.
    */
   def toList: List[A] = elements.toList
+  
+  /**
+   *  Returns a sequence containing all of the elements in this iterable object.
+   *  @note Will not terminate for infinite-sized collections.
+   */
+  def toSeq: Seq[A] = toList 
 
   /**
-   *  Create a stream which contains all the elements of this iterable object.
+   *  Returns a stream containing all of the elements in this iterable object.
    *  @note consider using <code>projection</code> for lazy behavior.
    */
   def toStream: Stream[A] = Stream.fromIterator(elements)
@@ -475,13 +464,14 @@ trait Iterable[+A] {
     buf.toString
   }
    
-
-  
   /** Write all elements of this string into given string builder.
    *
    *  @note Will not terminate for infinite-sized collections.
-   *  @param buf ...
-   *  @return    ...
+   *  @param buf the StringBuilder to which elements are appended
+   *  @param start starting string.
+   *  @param sep separator string.
+   *  @param end ending string.
+   *  @return the <code>buf</code> StringBuilder object
    */
   def addString(buf: StringBuilder, start: String, sep: String, end: String): StringBuilder = {
     buf.append(start)
@@ -493,7 +483,23 @@ trait Iterable[+A] {
     buf.append(end)
   }
 
+  /** Write all elements of this string into given string builder.
+   *
+   *  @note Will not terminate for infinite-sized collections.
+   *  @param buf the StringBuilder to which elements are appended
+   *  @param sep separator string.
+   *  @return the <code>buf</code> StringBuilder object
+   */
   def addString(buf: StringBuilder, sep: String): StringBuilder = addString(buf, "", sep, "")
+
+  /** Write all elements of this string into given string builder, with no separator string
+   *  between elements.
+   *  @note Will not terminate for infinite-sized collections.
+   *  @param buf the StringBuilder to which elements are appended
+   *  @return the <code>buf</code> StringBuilder object
+   */
+  def addString(buf: StringBuilder): StringBuilder = addString(buf, "", "", "")
+
    
   /** Fills the given array <code>xs</code> with the elements of
    *  this sequence starting at position <code>start</code>.

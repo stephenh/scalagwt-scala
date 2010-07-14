@@ -38,7 +38,7 @@ package scala.actors.remote
  *  }
  *  </pre>
  *
- * @version 0.9.10
+ * @version 0.9.17
  * @author Philipp Haller
  */
 object RemoteActor {
@@ -73,7 +73,7 @@ object RemoteActor {
     val s = Actor.self
     kernels += Pair(s, kern)
 
-    Scheduler.onTerminate(s) {
+    ActorGC.onTerminate(s) {
       Debug.info("alive actor "+s+" terminated")
       // remove mapping for `s`
       kernels -= s
@@ -96,8 +96,7 @@ object RemoteActor {
   def register(name: Symbol, a: Actor): Unit = synchronized {
     val kernel = kernels.get(Actor.self) match {
       case None =>
-        val serv = new TcpService(TcpService.generatePort, cl)
-        serv.start()
+        val serv = TcpService(TcpService.generatePort, cl)
         kernels += Pair(Actor.self, serv.kernel)
         serv.kernel
       case Some(k) =>
@@ -119,9 +118,12 @@ object RemoteActor {
    * Returns (a proxy for) the actor registered under
    * <code>name</code> on <code>node</code>.
    */
-  def select(node: Node, sym: Symbol): Actor = synchronized {
+  def select(node: Node, sym: Symbol): AbstractActor = synchronized {
     selfKernel.getOrCreateProxy(node, sym)
   }
+
+  def someKernel: NetKernel =
+    kernels.values.next
 }
 
 

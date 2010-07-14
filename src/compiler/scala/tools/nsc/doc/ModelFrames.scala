@@ -7,7 +7,7 @@
 package scala.tools.nsc.doc
 
 import java.io.{File, FileWriter}
-
+import util.NameTransformer
 import scala.collection.jcl
 import scala.compat.Platform.{EOL => LINE_SEPARATOR}
 import scala.xml.{NodeSeq, Text, Unparsed, Utility}
@@ -16,16 +16,17 @@ import scala.xml.{NodeSeq, Text, Unparsed, Utility}
   *
   *  @author  Sean McDirmid, Stephane Micheloud
   */
-trait ModelFrames extends ModelExtractor {
-  import DocUtil._
+trait ModelFrames extends ModelExtractor {    
+  import DocUtil._ 
   def settings: doc.Settings
+  import global.definitions.{AnyClass, AnyRefClass}
 
   val SyntheticClasses = new scala.collection.mutable.HashSet[global.Symbol];
   {
     import global.definitions._
     global.definitions.init
     SyntheticClasses ++= List(
-      AllClass, AllRefClass, AnyClass, AnyRefClass, AnyValClass,
+      NothingClass, NullClass, AnyClass, AnyRefClass, AnyValClass,
       //value classes
       BooleanClass, ByteClass, CharClass, IntClass, LongClass, ShortClass, UnitClass)
 
@@ -52,9 +53,9 @@ trait ModelFrames extends ModelExtractor {
   protected val NAME_SUFFIX_OBJECT  = "$object"
   protected val NAME_SUFFIX_PACKAGE = "$package"
 
-  def rootTitle = <div class="page-title">{docTitle}</div>;
+  def rootTitle = (<div class="page-title">{docTitle}</div>);
   def rootDesc =
-    <p>{load("This document is the API specification for " + windowTitle)}</p>;
+    (<p>{load("This document is the API specification for " + windowTitle)}</p>);
 
   final def hasLink(sym: global.Symbol): Boolean =
     if (sym == global.NoSymbol) false
@@ -69,6 +70,7 @@ trait ModelFrames extends ModelExtractor {
     }
     def path: String // relative to outdir
     def relative: String = {
+      if (path eq null) return "foo"
       assert(path ne null)
       var idx = 0
       var ct = new StringBuilder
@@ -110,12 +112,12 @@ trait ModelFrames extends ModelExtractor {
     import symtab.Flags
 
     def urlFor(sym: Symbol): String = sym match {
-      case sym : TypeSymbol if sym == definitions.AnyRefClass =>
-        urlFor0(sym, sym) + FILE_EXTENSION_HTML
       case psym : ModuleSymbol if psym.isPackage =>
         urlFor0(sym, sym) + FILE_EXTENSION_HTML
       case sym if !hasLink(sym) =>
         null
+      case sym if sym == AnyRefClass =>
+        urlFor0(sym, sym) + FILE_EXTENSION_HTML
       case msym: ModuleSymbol =>
         urlFor0(sym, sym) + FILE_EXTENSION_HTML
       case csym: ClassSymbol =>
@@ -154,7 +156,7 @@ trait ModelFrames extends ModelExtractor {
     def urlFor0(sym: Symbol, orig: Symbol): String =
       (if (sym == NoSymbol) "XXX"
        else if (sym.owner.isPackageClass) rootFor(sym) + pkgPath(sym)
-       else urlFor0(decode(sym.owner), orig) + "." + Utility.escape(sym.nameString)
+       else urlFor0(decode(sym.owner), orig) + "." + NameTransformer.encode(Utility.escape(sym.nameString))
       ) +
       (sym match {
         case msym: ModuleSymbol =>
@@ -175,36 +177,36 @@ trait ModelFrames extends ModelExtractor {
   protected def rootFor(sym: global.Symbol) = ""
 
   abstract class AllPackagesFrame extends Frame {
-    override val path  = "modules"
-    override val title = "List of all packages"
+    override lazy val path  = "modules"
+    override lazy val title = "List of all packages"
     def packages: Iterable[Package]
     override def body: NodeSeq =
-      <div>
+      (<div>
         <div class="doctitle-larger">{windowTitle}</div>
         <a href="all-classes.html" target={classesFrame} onclick="resetKind();">{"All objects and classes"}</a>
       </div>
       <div class="kinds">Packages</div>
       <ul class="list">{sort(packages).mkXML("","\n","")(pkg => {
-        <li><a href={urlFor(pkg)} target={classesFrame} onclick="resetKind();">
-          {pkg.fullName('.')}</a></li>
+        (<li><a href={urlFor(pkg)} target={classesFrame} onclick="resetKind();">
+          {pkg.fullName('.')}</a></li>)
       })}
-      </ul>;
+      </ul>);
   }
   abstract class PackagesContentFrame extends Frame {
-    val path  = "root-content"
-    val title = "All Packages"
+    lazy val path  = "root-content"
+    lazy val title = "All Packages"
     def packages : Iterable[Package]
     //def modules: TreeMap[String, ModuleClassSymbol]
     def body: NodeSeq =
-      {rootTitle} ++ {rootDesc} ++ <hr/> ++
-      <table cellpadding="3" class="member" summary="">
+      {rootTitle} ++ {rootDesc} ++ (<hr/>) ++
+      (<table cellpadding="3" class="member" summary="">
         <tr><td colspan="2" class="title">Package Summary</td></tr> 
-        {sort(packages).mkXML("","\n","")(pkg => <tr><td class="signature">
+        {sort(packages).mkXML("","\n","")(pkg => (<tr><td class="signature">
           <code>package
           {aref(pkgPath(pkg.sym) + "$content.html", "_self", pkg.fullName('.'))}
           </code>
-        </td></tr>)}
-      </table>;
+        </td></tr>))}
+      </table>);
   }
 
   val classFrameKinds = Classes :: Objects :: Nil;
@@ -221,33 +223,33 @@ trait ModelFrames extends ModelExtractor {
     
     def body: NodeSeq = {
       val nav = if (navLabel == null) NodeSeq.Empty else
-        <table class="navigation" summary="">
+        (<table class="navigation" summary="">
           <tr><td valign="top" class="navigation-links">
             {aref(navPath, contentFrame, navLabel)}
           </td></tr>
-        </table>;
+        </table>);
       val ids = new jcl.LinkedHashSet[String]
       def idFor(kind: Category, t: Entity)(seq : NodeSeq): NodeSeq = {
         val ch = t.listName.charAt(0);
         val id = kind.plural + "_" + ch;
-        if (ids contains id) <li>{seq}</li>;
+        if (ids contains id) (<li>{seq}</li>);
         else { 
           ids += id; 
-          <li id={id}>{seq}</li>
+          (<li id={id}>{seq}</li>)
         };
       }
-      val body = <div>{classFrameKinds.mkXML("","\n","")(kind => {
+      val body = (<div>{classFrameKinds.mkXML("","\n","")(kind => {
         val classes = sort(this.classes.filter(e => kind.f(e.sym)));
         if (classes.isEmpty) NodeSeq.Empty; else
-        <div id={kind.plural} class="kinds">{Text(kind.plural)}</div>
+        (<div id={kind.plural} class="kinds">{Text(kind.plural)}</div>
         <ul class="list">
         {classes.mkXML("","\n","")(cls => {
           idFor(kind, cls)(
             aref(urlFor(cls), contentFrame, cls.listName) ++ optional(cls)
           );
         })}
-        </ul>;
-      })}</div>;
+        </ul>);
+      })}</div>);
       nav ++ body
     }
     def optional(cls: ClassOrObject): NodeSeq = NodeSeq.Empty
@@ -262,24 +264,24 @@ trait ModelFrames extends ModelExtractor {
       {rootTitle} ++ {rootDesc} ++ {classFrameKinds.mkXML("","\n","")(kind => {
         val classes = sort(this.classes.filter(e => kind.f(e.sym) && e.isInstanceOf[TopLevel]));
         if (classes.isEmpty) NodeSeq.Empty else
-        <table cellpadding="3" class="member" summary="">
+        (<table cellpadding="3" class="member" summary="">
         <tr><td colspan="2" class="title">{kind.label} Summary</td></tr>
         {classes.mkXML("","\n","")(shortHeader)}        
-        </table>
+        </table>)
       })};
   }
 
   abstract class ClassContentFrame extends Frame {
     def clazz: ClassOrObject
     def body: NodeSeq =
-      <xml:group>
+      (<xml:group>
         {pageHeader}{navigation}{pageTop}
         {header0}{longHeader(clazz)}
         {pageBottom}{navigation}{pageFooter}
-      </xml:group>;
+      </xml:group>);
     final def path = urlFor0(clazz.sym, clazz.sym)
     private def navigation: NodeSeq =
-      <table class="navigation" summary="">
+      (<table class="navigation" summary="">
         <tr>
           <td valign="top" class="navigation-links">
             <!-- <table><tr></tr></table> -->
@@ -289,10 +291,10 @@ trait ModelFrames extends ModelExtractor {
           </td>
         </tr>
         <tr><td></td></tr>
-      </table>;
+      </table>);
     private def header0: NodeSeq = {
       val owner = decode(clazz.sym.owner)
-      <xml:group>
+      (<xml:group>
       <div class="entity">
         {aref(urlFor(owner), "_self", owner.fullNameString('.'))}
         <br/>
@@ -305,27 +307,26 @@ trait ModelFrames extends ModelExtractor {
           else {
             val name = owner.fullNameString('/') + (if (owner.isPackage) "/" + clazz.name else "")
             Text("[source: ") ++
-            <a class={name} href=""><code>{name + ".scala"}</code></a> ++
+            (<a class={name} href=""><code>{name + ".scala"}</code></a>) ++
             Text("]")
           }
         }
       </div><hr/>
-      </xml:group>
+      </xml:group>)
     }
   }  
-  def longComment(cmnt: Comment): NodeSeq
   
   val index =
-    <frameset cols="25%, 75%">
+    (<frameset cols="25%, 75%">
     <frameset rows="50%, 28, 50%">
     <frame src="modules.html" name={modulesFrame}></frame>
     <frame src="nav-classes.html" name="navigationFrame"></frame>
     <frame src="all-classes.html" name={classesFrame}></frame>
     </frameset>
     <frame src="root-content.html" name={contentFrame}></frame>
-    </frameset>;
+    </frameset>);
 
-  val root = <b></b>;
+  val root = (<b></b>);
   
   abstract class RootFrame extends Frame {
     def title = windowTitle
@@ -341,20 +342,20 @@ trait ModelFrames extends ModelExtractor {
     def path="nav-classes"
     override def body0(hasBody: Boolean, nodes: NodeSeq): NodeSeq =
       if (!hasBody) nodes
-      else <body style="margin:1px 0 0 1px; padding:1px 0 0 1px;">{nodes}</body>;
+      else (<body style="margin:1px 0 0 1px; padding:1px 0 0 1px;">{nodes}</body>);
     def body =
-      <form>
+      (<form>
         <select id="kinds" onchange="gotoKind()">
           <option value="#Classes" selected="selected">Classes</option>
           <option value="#Objects">Objects</option>
         </select>
         <span id="alphabet" style="font-family:Courier;word-spacing:-8px;">{
           indexChars.mkXML("","\n","")(c => {
-          <a href={Unparsed("javascript:gotoName(\'" + c + "\')")}>{c}</a>
+          (<a href={Unparsed("javascript:gotoName(\'" + c + "\')")}>{c}</a>)
           });
 	}
         </span>
-      </form>
+      </form>)
   }
 
   def copyResources = {

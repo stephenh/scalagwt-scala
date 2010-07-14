@@ -149,6 +149,44 @@ public class BoxesRunTime {
     public static long unboxToLong(Object l) {
         return l == null ? 0 : ((Long)l).longValue();
     }
+    
+    /*
+    public static boolean unboxToBoolean(Object b) {
+        if (b == null)
+          throw new ClassCastException("null is no Boolean value");
+        return ((Boolean)b).booleanValue();
+    }
+    
+    public static char unboxToChar(Object c) {
+        if (c == null)
+          throw new ClassCastException("null is no Char value");
+        return ((Character)c).charValue();
+    }
+    
+    public static byte unboxToByte(Object b) {
+        if (b == null)
+          throw new ClassCastException("null is no Byte value");
+        return ((Byte)b).byteValue();
+    }
+    
+    public static short unboxToShort(Object s) {
+        if (s == null)
+          throw new ClassCastException("null is no Short value");
+        return ((Short)s).shortValue();
+    }
+
+    public static int unboxToInt(Object i) {
+        if (i == null)
+          throw new ClassCastException("null is no Int value");
+        return ((Integer)i).intValue();
+    }
+    
+    public static long unboxToLong(Object l) {
+        if (l == null)
+          throw new ClassCastException("null is no Long value");
+        return ((Long)l).longValue();
+    }
+    */
         
 /* COMPARISON ... COMPARISON ... COMPARISON ... COMPARISON ... COMPARISON ... COMPARISON */
 
@@ -192,7 +230,7 @@ public class BoxesRunTime {
     }
 
     /** arg1 - arg2 */
-    public static Object substract(Object arg1, Object arg2) throws Error {
+    public static Object subtract(Object arg1, Object arg2) throws Error {
         throw new Error();
     }
 

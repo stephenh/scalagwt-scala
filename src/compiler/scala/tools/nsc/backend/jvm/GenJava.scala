@@ -105,9 +105,6 @@ with JavaSourceNormalization
       }
     }
 
-    def isStaticSymbol(s: Symbol): Boolean =
-      s.hasFlag(STATIC) || s.hasFlag(STATICMEMBER) || s.owner.isImplClass 
-
     // TODO(spoon): change this to make a tree and then print the tree with the
     // Java Printer.  using raw print's gives bad output and risks giving
     // incorrect output.
@@ -121,7 +118,7 @@ with JavaSourceNormalization
       print("{"); indent; println
       for (val m <- clazz.tpe.nonPrivateMembers; // TODO(spoon) -- non-private, or public?
            m.owner != definitions.ObjectClass && !m.hasFlag(PROTECTED) &&
-           m.isMethod && !m.hasFlag(CASE) && !m.isConstructor && !isStaticSymbol(m) )
+           m.isMethod && !m.hasFlag(CASE) && !m.isConstructor && !m.isStaticMember)
       {
         print("public final static "); print(m.tpe.resultType); print(" ") 
         print(m.name); print("(");
@@ -307,7 +304,7 @@ with JavaSourceNormalization
         print(tpe)
         print(")")
 
-      case tree@Apply(fun, args) if tree.symbol != NoSymbol && genicode.isStaticSymbol(tree.symbol) =>
+      case tree@Apply(fun, args) if tree.symbol != NoSymbol && tree.symbol.isStaticMember =>
         print(javaName(tree.symbol.owner))
         print(".")
         print(tree.symbol.name)

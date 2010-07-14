@@ -21,21 +21,26 @@ trait IdeSupport extends Analyzer {
     if (false) super.intern(txt)
     else if (txt.outer eq txt) txt
     else internMap.intern(txt)
-   
+
   override def newNamer(context : Context) : Namer = new Namer(context)
   class Namer(context: Context) extends super.Namer(context) {
     override protected def setInfo[Sym <: Symbol](sym : Sym)(tpe : LazyType) : Sym = {
       assert(!sym.hasRawInfo || sym.rawInfo == NoType) // type information has already been reset.
       if (currentClient.makeNoChanges) {
         sym.setInfo(tpe)
-        sym.info  // force completion.
+        try {
+          sym.info  // force completion.
+        } catch {
+          case e =>
+        }
         return sym
       }
       object tpe0 extends LazyType with SimpleTypeProxy {
         override def underlying = tpe
         override def complete(sym0 : Symbol) : Unit = {
           if (sym ne sym0) {
-            logError(sym + " "+sym.id + " vs. " + sym0.id + " we have a problem!", null)
+            logError("DUPLICATE: " + sym.fullNameString + " "+sym.id + " vs. " + sym0.id, null)
+            toComplete -= sym0
           }
           toComplete -= sym
           val pos = sym0.pos match {
@@ -50,7 +55,6 @@ trait IdeSupport extends Analyzer {
                 if (i.next.pos == util.NoPosition) pause = true
               }
               if (pause) {
-                assert(true)
                 assert(true)
               }
             case _=>
@@ -74,7 +78,7 @@ trait IdeSupport extends Analyzer {
           }
           
           //if (!hadTypeErrors && pos.owner != null && pos.owner.hasTypeErrors) pos.owner.dirtyTyped
-          if (pos.owner != null && pos.owner.hasTypeErrors) {
+          if (pos.owner != null && pos.owner.hasTypeErrors && (!sym0.rawInfo.isComplete || sym0.info == NoType || sym0.info == ErrorType)) {
             // go back to original type.
             val oldType = oldTypeFor(sym0)
             if (oldType != NoType)
@@ -119,7 +123,13 @@ trait IdeSupport extends Analyzer {
       if (tree.tpe == null) 
         tree.tpe = tree.underlying.updateTyper(this, mode, pt)
       tree
-    case tree => super.typed1(tree, mode, pt)
+    case tree => 
+      try {
+        super.typed1(tree, mode, pt)
+      } catch {
+        case e : TypeError => throw e
+        case e : Error => global.check(false, "tree: " + tree + " " + e); throw e
+      }
     } 
   }
   private val toComplete = new scala.collection.jcl.LinkedHashSet[Symbol]
@@ -177,6 +187,7 @@ trait IdeSupport extends Analyzer {
         dirtyTyped
       }
       val lastSymbol = this.lastSymbol
+
       def fakeUpdate(trees : List[Tree]) : Symbol = { trees.foreach{
       case tree : DefTree if (tree.symbol != NoSymbol && tree.symbol != null) =>
         // becareful, the symbol could have been rentered!
@@ -186,18 +197,10 @@ trait IdeSupport extends Analyzer {
           //Console.println("FK-ENTER: " + tree.symbol)
           val sym = namer.enterInScope(tree.symbol)
           if (sym != tree.symbol) {
-            assert(true)
-            assert(true)
-            Console.println("SCREWED: " + sym + " " + sym.id + " vs. " + tree.symbol.id)
+            Console.println("BAD: " + sym + " " + sym.id + " vs. " + tree.symbol.id)
           }
           import symtab.Flags._
           val set = reuseMap.get(namer.context.scope.asInstanceOf[PersistentScope])
-          if (set.isDefined && sym.isClass && sym.hasFlag(CASE)) {
-            val name = sym.name.toTermName
-            val factory = set.get.find(_.name == name).get
-            val sym0 = namer.enterInScope(factory)
-            assert(sym0 == factory)
-          }
           // could be getter or local, then we need to re-add getter/setter
           if (sym.isGetter && set.isDefined) 
             set.get.find(sym0 => sym0.name == nme.getterToSetter(sym.name) && sym0.isSetter) match {
@@ -221,10 +224,26 @@ trait IdeSupport extends Analyzer {
               val setter0 = namer.enterInScope(setter)
               assert(setter0 == setter)
             }
+          } else if (sym.hasFlag(symtab.Flags.LAZY) && sym.lazyAccessor != NoSymbol) {
+              if (set.get.find(sym0 => sym0 == sym.lazyAccessor).isDefined) {
+                namer.enterInScope(sym.lazyAccessor)
+              }
           }
         } 
       case _ =>
       }; if (trees.isEmpty) NoSymbol else trees.last.symbol }
+      import symtab.Flags._
+      if (!typeIsDirty) lastTyped.foreach{
+      case tree :DefTree if tree.symbol != null && tree.symbol != NoSymbol && tree.symbol.isClass && tree.symbol.hasFlag(CASE) => 
+        var e = namer.context.scope.lookupEntry(tree.symbol.name.toTermName)
+        while (e != null && !e.sym.hasFlag(MODULE)) e = namer.context.scope.lookupNextEntry(e)
+        Console.println("CHECKING: " + e + " " + (if (e != null) caseClassOfModuleClass.contains(e.sym.moduleClass)))
+        if (e == null) dirtyTyped
+        // we don't clear caseClassOfModuleClass unless we have to.
+        else if (!caseClassOfModuleClass.contains(e.sym.moduleClass)) dirtyTyped
+      case tree : DefTree if tree.symbol != null && tree.symbol != NoSymbol =>
+      case _ =>
+      }
       
       if (makeNoChanges) {}
       else if (!typeIsDirty && !lastTyped.isEmpty) 
@@ -233,7 +252,6 @@ trait IdeSupport extends Analyzer {
       val use = useTrees
       if (makeNoChanges) {}
       else if (use.isEmpty || use.last.symbol != NoSymbol) {
-        assert(true)
         return fakeUpdate(use) // already named
       }
       
@@ -250,15 +268,26 @@ trait IdeSupport extends Analyzer {
       }
       activate(try {
         use.foreach{tree => 
-          if (tree.isInstanceOf[DefTree]) {
-            assert(true)
-            //Console.println("RENAME: " + tree)
-          }
           namer.enterSym(tree)
         }
       } catch {
         case te : TypeError => typeError(te.getMessage)
       })
+      if (!makeNoChanges) use.foreach{tree=>
+        if (tree.symbol != null && 
+            tree.symbol.isClass && 
+            tree.symbol.hasFlag(symtab.Flags.CASE) && 
+            tree.symbol.owner != null &&   
+            tree.symbol.owner.rawInfo.isComplete) {
+          var e = tree.symbol.owner.info.decls.lookupEntry(tree.symbol.name.toTermName)
+          if (e != null) e.sym.pos match { // retype the object if its in the scope. 
+          case pos : TrackedPosition if pos.owner != null && pos.owner != MemoizedTree.this => 
+            pos.owner.dirtyTyped // hope this works!
+          case _ => 
+          }
+          ()
+        }
+      }
       if (makeNoChanges) {}
       else if (hasTypeErrors && lastSymbol != null && lastSymbol != NoSymbol && use.last.symbol != lastSymbol) {
         if (use.last.symbol != null && use.last.symbol != NoSymbol) {
@@ -271,14 +300,15 @@ trait IdeSupport extends Analyzer {
       }
       if (lastSymbol != NoSymbol && lastSymbol != use.last.symbol) {
         assert(true)
-        assert(true)
       }
       use.last.symbol
     }
-    def doTyper = if (typerTxt ne NoContext) updateTyper(newTyper(typerTxt), mode, pt)
+    def doTyper = try {
+      if (typerTxt ne NoContext) updateTyper(newTyper(typerTxt), mode, pt)
+    } catch {
+      case e => logError("doTyper crash", e)
+    }
     def updateTyper(typer : Typer, mode : Int, pt : Type) : Type = {
-      assert(true)
-
       val typerTxt = intern(typer.context)
       val makeNoChanges = currentClient.makeNoChanges
       if (!makeNoChanges && ((this.typerTxt ne typerTxt) || (this.pt != pt) || (this.mode != mode))) {
@@ -292,8 +322,6 @@ trait IdeSupport extends Analyzer {
       else if (typeIsDirty && shouldBeTyped && typerTxt != NoContext) {
         
       } else if (lastType == null) {
-        assert(true)
-        assert(true)
         return NoType
       } else return lastType
       var use = useTrees
@@ -302,7 +330,6 @@ trait IdeSupport extends Analyzer {
       if (use.last.symbol == NoSymbol && namerTxt != NoContext)
         updateNamer(newNamer(namerTxt))
       if (makeNoChanges) {
-        assert(true)  
         assert(true)
       }
       activate(try {
@@ -318,14 +345,12 @@ trait IdeSupport extends Analyzer {
         // the type changed in a good way.
         typeChanged
       }
-      assert(true)
       if (!makeNoChanges && (use.length != lastTyped.length || !use.zip(lastTyped).forall{
         case (t0,t1) => t0.equalsStructure0(t1){
         case (t0:StubTree,t1:StubTree) if t0.underlying == t0.underlying || true => true
         case _ => false
         }
       })) {
-        assert(true)
         highlightChanged
       }
       if (use.last.tpe == null) ErrorType else use.last.tpe
@@ -334,7 +359,7 @@ trait IdeSupport extends Analyzer {
   trait StubTree extends global.StubTree {
     def underlying : MemoizedTree
     override var symbol : Symbol = NoSymbol
-    override def duplicate : this.type = throw new Error("not supported") 
+    override def duplicate : this.type = this //throw new Error("not supported") 
     override def isType = underlying.kind.isType
     override def isTerm = underlying.kind.isTerm
     override def isDef = underlying.kind.isDef

@@ -8,27 +8,31 @@ package scala.tools.nsc
 
 import java.io.{File, PrintWriter, StringWriter, Writer}
 import java.lang.{Class, ClassLoader}
-import java.net.{URL, URLClassLoader}
+import java.net.{MalformedURLException, URL, URLClassLoader}
 
 import scala.collection.immutable.ListSet
 import scala.collection.mutable
 import scala.collection.mutable.{ListBuffer, HashSet, ArrayBuffer}
 
 //import ast.parser.SyntaxAnalyzer
-import io.PlainFile
+import io.{PlainFile, VirtualDirectory}
 import reporters.{ConsoleReporter, Reporter}
 import symtab.Flags
 import util.{SourceFile,BatchSourceFile,ClassPath,NameTransformer}
 import nsc.{InterpreterResults=>IR}
+import scala.tools.nsc.interpreter._
 
 /** <p>
  *    An interpreter for Scala code.
  *  </p>
  *  <p>
- *    The main public entry points are <code>compile()</code> and
- *    <code>interpret()</code>. The <code>compile()</code> method loads a
+ *    The main public entry points are <code>compile()</code>,
+ *    <code>interpret()</code>, and <code>bind()</code>.
+ *    The <code>compile()</code> method loads a
  *    complete Scala file.  The <code>interpret()</code> method executes one
- *    line of Scala code at the request of the user.
+ *    line of Scala code at the request of the user.  The <code>bind()</code>
+ *    method binds an object to a variable that can then be used by later
+ *    interpreted code.
  *  </p>
  *  <p>
  *    The overall approach is based on compiling the requested code and then
@@ -67,6 +71,9 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
   if (major.toInt < 49) {
     this.settings.target.value = "jvm-1.4"
   }
+
+  /** directory to save .class files to */
+  val virtualDirectory = new VirtualDirectory("(memory)", None)
 
   /** the compiler to compile expressions with */
   val compiler: scala.tools.nsc.Global = newCompiler(settings, reporter)
@@ -107,15 +114,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
   }
 
   /** interpreter settings */
-  val isettings = new InterpreterSettings
-
-  /** directory to save .class files to */
-  val classfilePath = File.createTempFile("scalaint", "")
-  classfilePath.delete  // the file is created as a file; make it a directory
-  classfilePath.mkdirs
-
-  /* set up the compiler's output directory */
-  settings.outdir.value = classfilePath.getPath
+  lazy val isettings = new InterpreterSettings
 
   object reporter extends ConsoleReporter(settings, null, out) {
     //override def printMessage(msg: String) { out.println(clean(msg)) }
@@ -124,16 +123,25 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
 
   /** Instantiate a compiler.  Subclasses can override this to
    *  change the compiler class used by this interpreter. */
-  protected def newCompiler(settings: Settings, reporter: Reporter) =
-    new scala.tools.nsc.Global(settings, reporter)
+  protected def newCompiler(settings: Settings, reporter: Reporter) = {
+    val comp = new scala.tools.nsc.Global(settings, reporter)
+    comp.genJVM.outputDir = virtualDirectory
+    comp
+  }
 
 
   /** the compiler's classpath, as URL's */
-  val compilerClasspath: List[URL] =
-    ClassPath.expandPath(compiler.settings.classpath.value).
-      map(s => new File(s).toURL)
+  val compilerClasspath: List[URL] = {
+    val classpathPart = 
+      (ClassPath.expandPath(compiler.settings.classpath.value).
+         map(s => new File(s).toURL))
+    def parseURL(s: String): Option[URL] =
+      try { Some(new URL(s)) }
+      catch { case _:MalformedURLException => None }
+    val codebasePart = (compiler.settings.Xcodebase.value.split(" ")).toList.flatMap(parseURL)
+    classpathPart ::: codebasePart
+  }
 
-  /** class loader used to load compiled code */
   /* A single class loader is used for all commands interpreted by this Interpreter.
      It would also be possible to create a new class loader for each command
      to interpret.  The advantages of the current approach are:
@@ -147,12 +155,16 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
          shadow the old ones, and old code objects refer to the old
          definitions.
   */
-  private val classLoader =
-    if (parentClassLoader eq null)
-      new URLClassLoader((classfilePath.toURL :: compilerClasspath).toArray)
-    else
-      new URLClassLoader((classfilePath.toURL :: compilerClasspath).toArray,
-                          parentClassLoader)
+  /** class loader used to load compiled code */
+  private val classLoader = {
+    val parent =
+      if (parentClassLoader == null)
+        new URLClassLoader(compilerClasspath.toArray)
+      else
+         new URLClassLoader(compilerClasspath.toArray,
+                            parentClassLoader)
+    new AbstractFileClassLoader(virtualDirectory, parent)     
+  }
 
   /** Set the current Java "context" class loader to this
     * interpreter's class loader */
@@ -160,9 +172,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
     Thread.currentThread.setContextClassLoader(classLoader)
   }
 
-  /** XXX Let's get rid of this.  I believe the Eclipse plugin is
-    * the only user of it, so this should be doable.  */
-  protected def parentClassLoader: ClassLoader = null
+  protected def parentClassLoader: ClassLoader = this.getClass.getClassLoader()
 
   /** the previous requests this interpreter has processed */
   private val prevRequests = new ArrayBuffer[Request]()
@@ -397,8 +407,8 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
           new CompilationUnit(
             new BatchSourceFile("<console>", code.toCharArray()))
         val scanner = new compiler.syntaxAnalyzer.UnitParser(unit);
-        val xxx = scanner.templateStatSeq;
-        (xxx._2)
+        val xxx = scanner.templateStatSeq(false);
+        (xxx._2) 
       }
       val (trees) = simpleParse(line)
       if (reporter.hasErrors) {
@@ -540,7 +550,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
     var argsHolder: Array[Any] = null // this roundabout approach is to try and 
                                       // make sure the value is boxed
     argsHolder = List(value).toArray
-    setterMethod.invoke(null, argsHolder.asInstanceOf[Array[AnyRef]])
+    setterMethod.invoke(null, argsHolder.asInstanceOf[Array[AnyRef]]: _*)
 
     interpret("val " + name + " = " + binderName + ".value")
   }
@@ -548,19 +558,10 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
 
   /** <p>
    *    This instance is no longer needed, so release any resources
-   *    it is using.
-   *  </p>
-   *  <p>
-   *    Specifically, this deletes the temporary directory used for holding
-   *    class files for this instance.  This cannot safely be done after
-   *    each command is executed because of Java's demand loading.
-   *  </p>
-   *  <p>
-   *    Also, this flushes the reporter's output.
+   *    it is using.  The reporter's output gets flushed.
    *  </p>
    */
   def close() {
-    Interpreter.deleteRecursively(classfilePath)
     reporter.flush()
   }
 
@@ -589,7 +590,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
       ivt.traverseTrees(List(member))
       ivt.importVars.toList
     }
-    val boundNames: List[Name] = Nil
+    def boundNames: List[Name] = Nil
     def valAndVarNames: List[Name] = Nil
     def defNames: List[Name] = Nil
     val importsWildcard = false
@@ -608,7 +609,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
   private class GenericHandler(member: Tree) extends MemberHandler(member)
 
   private class ValHandler(member: ValDef) extends MemberHandler(member) {
-    override val boundNames = List(member.name)
+    override lazy val boundNames = List(member.name)
     override def valAndVarNames = boundNames
     
     override def resultExtractionCode(req: Request, code: PrintWriter) {
@@ -626,15 +627,15 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
                    ".asInstanceOf[AnyRef] != null) " +
                    " ((if(" + 
 	           req.fullPath(vname) + 
-	           ".toString.contains('\\n')) " +
+	           ".toString().contains('\\n')) " +
                    " \"\\n\" else \"\") + " +
-                   req.fullPath(vname) + ".toString + \"\\n\") else \"null\\n\") ")
+                   req.fullPath(vname) + ".toString() + \"\\n\") else \"null\\n\") ")
       }
     }
   }
 
   private class DefHandler(defDef: DefDef) extends MemberHandler(defDef) {
-    override val boundNames = List(defDef.name)
+    override lazy val boundNames = List(defDef.name)
     override def defNames = boundNames
 
     override def resultExtractionCode(req: Request, code: PrintWriter) {
@@ -665,7 +666,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
   }
 
   private class ModuleHandler(module: ModuleDef) extends MemberHandler(module) {
-    override val boundNames = List(module.name)
+    override lazy val boundNames = List(module.name)
 
     override def resultExtractionCode(req: Request, code: PrintWriter) {
       code.println(" + \"defined module " + 
@@ -677,7 +678,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
   private class ClassHandler(classdef: ClassDef) 
   extends MemberHandler(classdef) 
   {
-    override val boundNames =
+    override lazy val boundNames =
       List(classdef.name) :::
       (if (classdef.mods.hasFlag(Flags.CASE))
          List(classdef.name.toTermName)
@@ -702,7 +703,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
   private class TypeAliasHandler(typeDef: TypeDef) 
   extends MemberHandler(typeDef) 
   {
-    override val boundNames =
+    override lazy val boundNames =
       if (typeDef.mods.isPublic && compiler.treeInfo.isAliasTypeDef(typeDef))
         List(typeDef.name)
       else
@@ -764,7 +765,7 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
 
     /** Code to access a variable with the specified name */
     def fullPath(vname: String): String =
-      objectName + accessPath + "." + vname
+      objectName + accessPath + ".`" + vname + "`"
 
     /** Code to access a variable with the specified name */
     def fullPath(vname: Name): String = fullPath(vname.toString)
@@ -887,9 +888,9 @@ class Interpreter(val settings: Settings, out: PrintWriter) {
       val interpreterResultObject: Class[_] =
         Class.forName(resultObjectName, true, classLoader)
       val resultValMethod: java.lang.reflect.Method =
-        interpreterResultObject.getMethod("result", null)
+        interpreterResultObject.getMethod("result")
       try {
-        (resultValMethod.invoke(interpreterResultObject, null).toString(),
+        (resultValMethod.invoke(interpreterResultObject).toString(),
              true)
       } catch {
         case e =>

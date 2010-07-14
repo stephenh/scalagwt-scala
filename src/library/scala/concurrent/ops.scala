@@ -20,9 +20,21 @@ import java.lang.Thread
  *  @version 1.0, 12/03/2003
  */
 object ops {
-
   /**
-   *  @param p ...
+   *  If expression computed successfully return it in <code>Left</code>,
+   *  otherwise return exception in <code>Right</code>.
+   */
+  private def tryCatch[A](left: => A): Either[A, Throwable] = {
+    try {
+      Left(left)
+    } catch {
+      case t => Right(t)
+    }
+  }
+
+  /** Evaluates an expression asynchronously.
+   *
+   *  @param  p the expression to evaluate
    */
   def spawn(p: => Unit) = {
     val t = new Thread() { override def run() = p }
@@ -34,9 +46,12 @@ object ops {
    *  @return  ...
    */
   def future[A](p: => A): () => A = {
-    val result = new SyncVar[A]
-    spawn { result setWithCatch p }
-    () => result.get
+    val result = new SyncVar[Either[A, Throwable]]
+    spawn { result set tryCatch(p) }
+    () => result.get match {
+    	case Left(a) => a
+    	case Right(t) => throw t
+    }
   }
 
   /**
@@ -45,9 +60,12 @@ object ops {
    *  @return   ...
    */
   def par[A, B](xp: => A, yp: => B): (A, B) = {
-    val y = new SyncVar[B]
-    spawn { y setWithCatch yp }
-    (xp, y.get)
+    val y = new SyncVar[Either[B, Throwable]]
+    spawn { y set tryCatch(yp) }
+    (xp, y.get match {
+    	case Left(b) => b
+    	case Right(t) => throw t
+    })
   }
 
   /**

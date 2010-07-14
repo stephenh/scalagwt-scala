@@ -6,6 +6,8 @@
 **                          |/                                          **
 \*                                                                      */
 
+// $Id$
+
 package scala.tools.partest
 
 import scala.actors.Actor._
@@ -29,7 +31,13 @@ class PartestTask extends Task {
 
   def addConfiguredResidentTests(input: FileSet): Unit =
     residentFiles = Some(input)
-  
+
+  def addConfiguredScriptTests(input: FileSet): Unit =
+    scriptFiles = Some(input)
+
+  def addConfiguredShootoutTests(input: FileSet): Unit =
+    shootoutFiles = Some(input)
+
   def setClasspath(input: Path): Unit =
     if (classpath.isEmpty)
       classpath = Some(input)
@@ -53,6 +61,15 @@ class PartestTask extends Task {
   def setErrorOnFailed(input: Boolean): Unit =
     errorOnFailed = input
     
+  def setJavaCmd(input: File): Unit =
+    javacmd = Some(input)
+    
+  def setScalacOpts(opts: String): Unit =
+    scalacOpts = Some(opts)
+
+  def setTimeout(delay: String): Unit =
+    timeout = Some(delay)
+
   private var classpath: Option[Path] = None
   private var javacmd: Option[File] = None
   private var showDiff: Boolean = false
@@ -62,8 +79,12 @@ class PartestTask extends Task {
   private var negFiles: Option[FileSet] = None
   private var runFiles: Option[FileSet] = None
   private var residentFiles: Option[FileSet] = None
+  private var scriptFiles: Option[FileSet] = None
+  private var shootoutFiles: Option[FileSet] = None
   private var errorOnFailed: Boolean = false
-  
+  private var scalacOpts: Option[String] = None
+  private var timeout: Option[String] = None
+
   private def getPosFiles: Array[File] =
     if (!posFiles.isEmpty) {
       val files = posFiles.get
@@ -95,8 +116,23 @@ class PartestTask extends Task {
     }
     else
       Array()
-    
-  
+
+  private def getScriptFiles: Array[File] =
+    if (!scriptFiles.isEmpty) {
+      val files = scriptFiles.get
+      (files.getDirectoryScanner(getProject).getIncludedFiles map { fs => new File(files.getDir(getProject), fs) })
+    }
+    else
+      Array()
+
+  private def getShootoutFiles: Array[File] =
+    if (!shootoutFiles.isEmpty) {
+      val files = shootoutFiles.get
+      (files.getDirectoryScanner(getProject).getIncludedFiles map { fs => new File(files.getDir(getProject), fs) })
+    }
+    else
+      Array()
+
   override def execute(): Unit = {
     
     if (classpath.isEmpty)
@@ -106,7 +142,7 @@ class PartestTask extends Task {
       (classpath.get.list map { fs => new File(fs) }) find { f =>
         f.getName match {
           case "scala-library.jar" => true
-          case "lib" if (f.getParentFile.getName == "library") => true
+          case "classes" if (f.getParentFile.getName == "library") => true
           case _ => false
         }
       }
@@ -119,26 +155,26 @@ class PartestTask extends Task {
     val antRunner: AnyRef =
       classloader.loadClass("scala.tools.partest.nest.AntRunner").newInstance().asInstanceOf[AnyRef]
     val antFileManager: AnyRef =
-      antRunner.getClass.getMethod("fileManager", Array()).invoke(antRunner, Array())
+      antRunner.getClass.getMethod("fileManager", Array[Class[_]](): _*).invoke(antRunner, Array[Object](): _*)
     
     val runMethod =
-      antRunner.getClass.getMethod("reflectiveRunTestsForFiles", Array(classOf[Array[File]], classOf[String]))
+      antRunner.getClass.getMethod("reflectiveRunTestsForFiles", Array(classOf[Array[File]], classOf[String]): _*)
   
     def runTestsForFiles(kindFiles: Array[File], kind: String): (Int, Int) = {
-      val result = runMethod.invoke(antRunner, Array(kindFiles, kind)).asInstanceOf[Int]
+      val result = runMethod.invoke(antRunner, Array(kindFiles, kind): _*).asInstanceOf[Int]
       (result >> 16, result & 0x00FF)
     }
     
     def setFileManagerBooleanProperty(name: String, value: Boolean) = {
       val setMethod =
-        antFileManager.getClass.getMethod(name+"_$eq", Array(classOf[Boolean]))
-      setMethod.invoke(antFileManager, Array(java.lang.Boolean.valueOf(value)))
+        antFileManager.getClass.getMethod(name+"_$eq", Array(classOf[Boolean]): _*)
+      setMethod.invoke(antFileManager, Array(java.lang.Boolean.valueOf(value)): _*)
     }
     
     def setFileManagerStringProperty(name: String, value: String) = {
       val setMethod =
-        antFileManager.getClass.getMethod(name+"_$eq", Array(classOf[String]))
-      setMethod.invoke(antFileManager, Array(value))
+        antFileManager.getClass.getMethod(name+"_$eq", Array(classOf[String]): _*)
+      setMethod.invoke(antFileManager, Array(value): _*)
     }
     
     setFileManagerBooleanProperty("showDiff", showDiff)
@@ -148,9 +184,13 @@ class PartestTask extends Task {
       setFileManagerStringProperty("JAVACMD", javacmd.get.getAbsolutePath)
     setFileManagerStringProperty("CLASSPATH", classpath.get.list.mkString(File.pathSeparator))
     setFileManagerStringProperty("LATEST_LIB", scalaLibrary.get.getAbsolutePath)
-    
-    var allSucesses: int = 0
-    var allFailures: int = 0
+    if (!scalacOpts.isEmpty)
+      setFileManagerStringProperty("SCALAC_OPTS", scalacOpts.get)
+    if (!timeout.isEmpty)
+      setFileManagerStringProperty("timeout", timeout.get)
+
+    var allSucesses: Int = 0
+    var allFailures: Int = 0
     
     if (getPosFiles.size > 0) {
       log("Compiling files that are expected to build")
@@ -179,8 +219,22 @@ class PartestTask extends Task {
       allSucesses += successes
       allFailures += failures
     }
-    
-    if ((getPosFiles.size + getNegFiles.size + getRunFiles.size + getResidentFiles.size) == 0)
+
+    if (getScriptFiles.size > 0) {
+      log("Running script files")
+      val (successes, failures) = runTestsForFiles(getScriptFiles, "script")
+      allSucesses += successes
+      allFailures += failures
+    }
+
+    if (getShootoutFiles.size > 0) {
+      log("Running shootout tests")
+      val (successes, failures) = runTestsForFiles(getShootoutFiles, "shootout")
+      allSucesses += successes
+      allFailures += failures
+    }
+
+    if ((getPosFiles.size + getNegFiles.size + getRunFiles.size + getResidentFiles.size + getScriptFiles.size + getShootoutFiles.size) == 0)
       log("There where no tests to run.")
     else if (allFailures == 0)
       log("Test suite finished with no failures.")

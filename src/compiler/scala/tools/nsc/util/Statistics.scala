@@ -28,9 +28,9 @@ abstract class Statistics {
     inform("#symbols     : " + symbolCount)
     inform("#type symbols: " + typeSymbolCount)
     inform("#class symbols: " + classSymbolCount)
-    inform("#singleton closures: " + singletonClosureCount)
-    inform("#compound closures : " + compoundClosureCount)
-    inform("#typeref closures  : " + typerefClosureCount)
+    inform("#singleton closures: " + singletonBaseTypeSeqCount)
+    inform("#compound closures : " + compoundBaseTypeSeqCount)
+    inform("#typeref closures  : " + typerefBaseTypeSeqCount)
     inform("#findMember     : " + findMemberCount)
     inform("#notfound member: " + noMemberCount)
     inform("#mulitple member: " + multMemberCount)
@@ -40,5 +40,6 @@ abstract class Statistics {
     inform("#norm other: " + analyzer.normO)
     inform("#subtype  : " + subtypeCount)
     inform("ms subtype: " + subtypeMillis)
+    inform("ms type-flow-analysis: " + analysis.timer.millis)
   }
 }

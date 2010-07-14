@@ -165,6 +165,56 @@ public class BoxesRunTime {
     public static double unboxToDouble(Object d) {
         return d == null ? 0.0d : ((Double)d).doubleValue();
     }
+    
+    /*
+    public static boolean unboxToBoolean(Object b) {
+        if (b == null)
+          throw new ClassCastException("null is no Boolean value");
+        return ((Boolean)b).booleanValue();
+    }
+    
+    public static char unboxToChar(Object c) {
+        if (c == null)
+          throw new ClassCastException("null is no Char value");
+        return ((Character)c).charValue();
+    }
+    
+    public static byte unboxToByte(Object b) {
+        if (b == null)
+          throw new ClassCastException("null is no Byte value");
+        return ((Byte)b).byteValue();
+    }
+    
+    public static short unboxToShort(Object s) {
+        if (s == null)
+          throw new ClassCastException("null is no Short value");
+        return ((Short)s).shortValue();
+    }
+
+    public static int unboxToInt(Object i) {
+        if (i == null)
+          throw new ClassCastException("null is no Int value");
+        return ((Integer)i).intValue();
+    }
+    
+    public static long unboxToLong(Object l) {
+        if (l == null)
+          throw new ClassCastException("null is no Long value");
+        return ((Long)l).longValue();
+    }
+    
+    public static float unboxToFloat(Object f) {
+        if (f == null)
+          throw new ClassCastException("null is no Float value");
+        return ((Float)f).floatValue();
+    }
+    
+    public static double unboxToDouble(Object d) {
+        if (d == null)
+          throw new ClassCastException("null is no Double value");
+        return ((Double)d).doubleValue();
+    }
+    */
         
 /* COMPARISON ... COMPARISON ... COMPARISON ... COMPARISON ... COMPARISON ... COMPARISON */
 
@@ -240,7 +290,7 @@ public class BoxesRunTime {
     }
 
     /** arg1 - arg2 */
-    public static Object substract(Object arg1, Object arg2) throws NoSuchMethodException {
+    public static Object subtract(Object arg1, Object arg2) throws NoSuchMethodException {
         int code1 = typeCode(arg1);
         int code2 = typeCode(arg2);
         int maxcode = (code1 < code2) ? code2 : code1;

@@ -515,7 +515,7 @@ object Sorting {
       var k, t_lo = lo
       var t_hi = mid + 1
       while (k <= hi) {
-        if ((t_lo <= mid) && ((t_hi > hi) || (f(a(t_lo), a(t_hi))))) { 
+        if ((t_lo <= mid) && ((t_hi > hi) || (!f(a(t_hi), a(t_lo))))) { 
           scratch(k) = a(t_lo) 
           t_lo += 1 
         } else { 
@@ -544,24 +544,25 @@ object Sorting {
     val doubles = Array(
       3.4054752250314283E9,
       4.9663151227666664E10,
-      0.0/0.0,
+// 0.0/0.0 is interpreted as Nan      
+//      0.0/0.0,
       4.9663171987125E10,
       5.785996973446602E9,
-      0.0/0.0,
+//      0.0/0.0,
       3.973064849653333E10,
       3.724737288678125E10,
-      0.0/0.0
+//      0.0/0.0
     )
     val floats = Array(
       3.4054752250314283E9f,
       4.9663151227666664E10f,
-      0.0f/0.0f,
+//      0.0f/0.0f,
       4.9663171987125E10f,
       5.785996973446602E9f,
-      0.0f/0.0f,
+//      0.0f/0.0f,
       3.973064849653333E10f,
       3.724737288678125E10f,
-      0.0f/0.0f
+//      0.0f/0.0f
     )
     Sorting quickSort tuples
     println(tuples.toList)

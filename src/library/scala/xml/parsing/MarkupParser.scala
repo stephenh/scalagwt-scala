@@ -88,7 +88,7 @@ trait MarkupParser extends AnyRef with TokenTests { self:  MarkupParser with Mar
     md
   }
 
-  /** &lt;? prolog ::= xml S 
+  /** &lt;? prolog ::= xml S?
    *  // this is a bit more lenient than necessary...
    */
   def prolog(): Tuple3[Option[String], Option[String], Option[Boolean]] = {
@@ -101,7 +101,7 @@ trait MarkupParser extends AnyRef with TokenTests { self:  MarkupParser with Mar
 
     var m = xmlProcInstr()
 
-    xSpace
+    xSpaceOpt
 
     m("version") match {
       case null  => ;
@@ -294,13 +294,13 @@ trait MarkupParser extends AnyRef with TokenTests { self:  MarkupParser with Mar
         
         case Some(prefix)       => 
           val key = qname.substring(prefix.length+1, qname.length);
-          aMap = new PrefixedAttribute(prefix, key, value, aMap);
+          aMap = new PrefixedAttribute(prefix, key, Text(value), aMap);
 
         case _             => 
           if( qname == "xmlns" ) 
             scope = new NamespaceBinding(null, value, scope);
           else 
-            aMap = new UnprefixedAttribute(qname, value, aMap);
+            aMap = new UnprefixedAttribute(qname, Text(value), aMap);
       }
             
       if ((ch != '/') && (ch != '>') && ('?' != ch))
@@ -528,7 +528,7 @@ trait MarkupParser extends AnyRef with TokenTests { self:  MarkupParser with Mar
                   case "lt"    => ts &+ '<'
                   case "gt"    => ts &+ '>'
                   case "amp"   => ts &+ '&'
-                  case "quote" => ts &+ '"'
+                  case "quot" => ts &+ '"'
                   case _ =>
                     /*
                      ts + handle.entityRef( tmppos, n ) ;
@@ -1174,7 +1174,7 @@ trait MarkupParser extends AnyRef with TokenTests { self:  MarkupParser with Mar
   def normalizeAttributeValue(attval: String): String = {
     val s: Seq[Char] = attval
     val it = s.elements
-    while(it.hasNext) {
+    while (it.hasNext) {
       it.next match {
         case ' '|'\t'|'\n'|'\r' => 
           cbuf.append(' ');
@@ -1191,12 +1191,13 @@ trait MarkupParser extends AnyRef with TokenTests { self:  MarkupParser with Mar
               d = it.next
             } while(d != ';');
             nbuf.toString() match {
-              //case "lt"    => cbuf.append('<')
-              //case "gt"    => cbuf.append('>')
-              //case "amp"   => cbuf.append('&')
-              //case "quote" => cbuf.append('"')
+              case "lt"    => cbuf.append('<')
+              case "gt"    => cbuf.append('>')
+              case "amp"   => cbuf.append('&')
+              case "apos"  => cbuf.append('\'')
+              case "quot"  => cbuf.append('"')
+              case "quote" => cbuf.append('"')
               case name =>
-                //don't handle entityrefs for now
                 cbuf.append('&')
                 cbuf.append(name)
                 cbuf.append(';')

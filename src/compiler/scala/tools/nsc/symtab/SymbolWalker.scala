@@ -1,7 +1,7 @@
 package scala.tools.nsc.symtab
 
 trait SymbolWalker {
-  val global : Global
+  val global : Global 
   import scala.tools.nsc.util._
   import global._
   import scala.collection.jcl._
@@ -39,7 +39,6 @@ trait SymbolWalker {
         case (t : TypeTree, tp) if tp != null && tp.typeSymbol != null && tp.typeSymbol != NoSymbol => tp.typeSymbol 
         case (t : TypeTree, tp) if tp != null && tp.resultType != null && tp.resultType.typeSymbol != null => tp.resultType.typeSymbol 
         case (t, tpe : Type) if tpe != null && (t.symbol eq NoSymbol) && t.isTerm && tpe.termSymbol != null => 
-          assert(true)
           tpe.termSymbol
         case (t, tpe : Type) if tpe != null && (t.symbol eq NoSymbol) && tpe.typeSymbol != null => 
               if (t.tpe.isInstanceOf[TypeRef]) asTypeRef.sym // XXX: looks like a bug
@@ -53,8 +52,6 @@ trait SymbolWalker {
           val name = sym.name.decode.trim
           if ((name startsWith id.get) || (id.get startsWith name)) true 
           else {
-            assert(true)
-            assert(true)
             false
           }
         } else false
@@ -77,7 +74,6 @@ trait SymbolWalker {
           }
         }}
       }
-      assert(true)
       t match {
       case t : DefTree if t.symbol != NoSymbol =>
         if (t.pos != NoPosition)
@@ -85,7 +81,6 @@ trait SymbolWalker {
           if (t.symbol.isClass) {
             val factory = NoSymbol // XXX: t.symbol.caseFactory
             if (factory != NoSymbol) {
-              assert(true)
               visitor.putDef(factory, t.pos)
             }
         }
@@ -138,7 +133,6 @@ trait SymbolWalker {
       case tree: ValOrDefDef => 
         f(tree.rhs); 
         if (tree.tpt != null) {
-          assert(true)
           f(tree.tpt)
         }
         tree match {
@@ -171,8 +165,20 @@ trait SymbolWalker {
               arg.tpe = tpe  
             }
           }
+          if (tree.tpt.tpe == null) {
+            tree.tpt.tpe = tree.tpe
+          }
+          
         }
         f(tree.tpt); fs(tree.args) 
+
+      case tree : ExistentialTypeTree=>
+        if (tree.tpt.tpe == null) {
+          tree.tpt.tpe = tree.tpe
+        }
+        
+        f(tree.tpt)
+        fs(tree.whereClauses)
       case tree : SingletonTypeTree => 
         if (tree.ref.tpe == null) {
           val dup = tree.ref.duplicate
@@ -180,7 +186,7 @@ trait SymbolWalker {
           f(dup)
         } else f(tree.ref)
       case tree : CompoundTypeTree => 
-        if (tree.tpe.typeSymbol.isRefinementClass) tree.tpe.typeSymbol.info match {
+        if (tree.tpe != null && tree.tpe.typeSymbol != null && tree.tpe.typeSymbol.isRefinementClass) tree.tpe.typeSymbol.info match {
         case tpe : RefinedType => 
           tpe.parents.zip(tree.templ.parents).foreach{
           case (tpe,tree) => 
@@ -224,7 +230,19 @@ trait SymbolWalker {
       case tree : Throw      => f(tree.expr);
       case tree : Try        => f(tree.block); fs(tree.catches); f(tree.finalizer);
       case tree : Alternative => fs(tree.trees);
-      case tree : TypeDef => f(tree.rhs); fs(tree.tparams)
+      case tree : TypeDef => 
+        (tree.tpe,sym) match {
+          case (null,sym : TypeSymbol) if (sym.rawInfo.isComplete) =>
+            if (tree.tparams.isEmpty) {
+              if (tree.rhs.tpe == null) tree.rhs.tpe = sym.info
+              f(tree.rhs)
+            } else {
+              val tree0 = AppliedTypeTree(tree.rhs, tree.tparams)
+              tree0.tpe = sym.info
+              f(tree0)
+            }
+          case _ => f(tree.rhs); fs(tree.tparams)
+        }
       case tree : DocDef     => f(tree.definition);
       case tree: Import => f(tree.expr)
       case _ => 

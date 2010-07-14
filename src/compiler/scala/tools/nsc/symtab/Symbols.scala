@@ -11,6 +11,8 @@ import scala.tools.nsc.io.AbstractFile
 import scala.tools.nsc.util.{Position, NoPosition, BatchSourceFile}
 import Flags._
 
+//todo: get rid of MONOMORPHIC flag
+
 trait Symbols {
   self: SymbolTable =>
   import definitions._
@@ -35,7 +37,6 @@ trait Symbols {
       coerceIntToPos(pos)
   }
   */
-
   /** The class for all symbols */
   abstract class Symbol(initOwner: Symbol, initPos: Position, initName: Name) {
 
@@ -44,13 +45,13 @@ trait Symbols {
     var rawflags: Long = 0
     private var rawpos = initPos
     val id = { ids += 1; ids }
-//    assert(id != 5413, initName+"/"+initOwner)
+//    assert(id != 7498, initName+"/"+initOwner)
 
     var validTo: Period = NoPeriod
 
     def pos = rawpos
     def setPos(pos: Position): this.type = { this.rawpos = pos; this }
-
+ 
     def namePos(source: BatchSourceFile) = {
       val pos: Int = this.pos.offset.getOrElse(-1)
       val buf = source.content
@@ -120,7 +121,7 @@ trait Symbols {
     final def newModule(pos: Position, name: Name) = {
       val m = new ModuleSymbol(this, pos, name).setFlag(MODULE | FINAL)
       m.setModuleClass(new ModuleClassSymbol(m))
-    }
+    } 
     final def newPackage(pos: Position, name: Name) = {
       assert(name == nme.ROOT || isPackageClass)
       val m = newModule(pos, name).setFlag(JAVA | PACKAGE)
@@ -164,8 +165,13 @@ trait Symbols {
       newClass(pos, nme.ANON_CLASS_NAME.toTypeName)
     final def newAnonymousFunctionClass(pos: Position) = {
       val anonfun = newClass(pos, nme.ANON_FUN_NAME.toTypeName)
-      anonfun.attributes =
-        AnnotationInfo(definitions.SerializableAttr.tpe, List(), List()) :: anonfun.attributes
+      def firstNonSynOwner(chain: List[Symbol]): Symbol = (chain: @unchecked) match {
+        case o :: os => if (o != this && !(o hasFlag SYNTHETIC) && o.isClass) o else firstNonSynOwner(os)
+      }
+      val ownerSerial = firstNonSynOwner(ownerChain) hasAttribute SerializableAttr
+      if (ownerSerial)
+        anonfun.attributes =
+          AnnotationInfo(definitions.SerializableAttr.tpe, List(), List()) :: anonfun.attributes
       anonfun
     }
     final def newRefinementClass(pos: Position) =
@@ -200,7 +206,8 @@ trait Symbols {
     final def isLocalDummy = isTerm && nme.isLocalDummyName(name)
     final def isMethod = isTerm && hasFlag(METHOD)
     final def isSourceMethod = isTerm && (flags & (METHOD | STABLE)) == METHOD
-    final def isLabel = isTerm && hasFlag(LABEL)
+    final def isLabel = isMethod && !hasFlag(ACCESSOR) && hasFlag(LABEL)
+    final def isInitializedToDefault = !isType && (getFlag(DEFAULTINIT | ACCESSOR) == (DEFAULTINIT | ACCESSOR))
     final def isClassConstructor = isTerm && (name == nme.CONSTRUCTOR)
     final def isMixinConstructor = isTerm && (name == nme.MIXIN_CONSTRUCTOR)
     final def isConstructor = isTerm && (name == nme.CONSTRUCTOR) || (name == nme.MIXIN_CONSTRUCTOR)
@@ -211,7 +218,7 @@ trait Symbols {
     //final def isMonomorphicType = isType && hasFlag(MONOMORPHIC)
     final def isError = hasFlag(IS_ERROR)
     final def isErroneous = isError || isInitialized && tpe.isErroneous
-    final def isTrait = isClass & hasFlag(TRAIT)
+    final def isTrait = isClass & hasFlag(TRAIT | notDEFERRED)     // A virtual class becomes a trait (part of DEVIRTUALIZE)
     final def isTypeParameterOrSkolem = isType && hasFlag(PARAM)
     final def isTypeSkolem            = isSkolem && hasFlag(PARAM)
     final def isTypeParameter         = isTypeParameterOrSkolem && !isSkolem
@@ -255,7 +262,13 @@ trait Symbols {
       owner.isEmptyPackageClass && 
       name.toString.startsWith(nme.INTERPRETER_LINE_PREFIX) &&
       name.toString.endsWith(nme.INTERPRETER_WRAPPER_SUFFIX)
-    
+
+    /** Is this symbol an accessor method for outer? */
+    final def isOuterAccessor = {
+      hasFlag(STABLE | SYNTHETIC) &&
+      originalName == nme.OUTER 
+    }
+
     /** Does this symbol denote a stable value? */
     final def isStable =
       isTerm && !hasFlag(MUTABLE) && (!hasFlag(METHOD | BYNAMEPARAM) || hasFlag(STABLE))
@@ -266,8 +279,8 @@ trait Symbols {
     def isVirtualClass = 
       hasFlag(DEFERRED) && isClass
 
-    def isVirtualSubClass = 
-      info.baseClasses exists (_.isVirtualClass)
+    def isVirtualTrait = 
+      hasFlag(DEFERRED) && isTrait
 
     /** Is this symbol a public */
     final def isPublic: Boolean =
@@ -312,6 +325,10 @@ trait Symbols {
     /** Is this symbol static (i.e. with no outer instance)? */
     final def isStatic: Boolean =
       hasFlag(STATIC) || isRoot || owner.isStaticOwner
+
+    /** Is this symbol a static member of its class? (i.e. needs to be implemented as a Java static?) */
+    final def isStaticMember: Boolean = 
+      hasFlag(STATIC) || owner.isImplClass
 
     /** Does this symbol denote a class that defines static symbols? */
     final def isStaticOwner: Boolean =
@@ -476,10 +493,11 @@ trait Symbols {
     /** Get type info associated with symbol at current phase, after
      *  ensuring that symbol is initialized (i.e. type is completed).
      */
-    def info: Type = {
+    def info: Type = try {
       var cnt = 0 
       while (validTo == NoPeriod) {
         //if (settings.debug.value) System.out.println("completing " + this);//DEBUG
+        if (inIDE && (infos eq null)) return ErrorType
         assert(infos ne null, this.name)
         assert(infos.prev eq null, this.name)
         val tp = infos.info
@@ -505,6 +523,10 @@ trait Symbols {
       }
       val result = rawInfo
       result
+    } catch {
+      case ex: CyclicReference =>
+        if (settings.debug.value) println("... trying to complete "+this)
+        throw ex
     }
 
     /** Set initial info. */
@@ -673,11 +695,11 @@ trait Symbols {
      */
     def existentialBound: Type = 
       if (this.isClass) 
-         polyType(this.typeParams, mkTypeBounds(AllClass.tpe, this.classBound))
+         polyType(this.typeParams, mkTypeBounds(NothingClass.tpe, this.classBound))
       else if (this.isAbstractType) 
          this.info
       else if (this.isTerm) 
-         mkTypeBounds(AllClass.tpe, intersectionType(List(this.tpe, SingletonClass.tpe)))
+         mkTypeBounds(NothingClass.tpe, intersectionType(List(this.tpe, SingletonClass.tpe)))
       else 
         throw new Error("unexpected alias type: "+this)
 
@@ -695,15 +717,15 @@ trait Symbols {
 
     /** A total ordering between symbols that refines the class
      *  inheritance graph (i.e. subclass.isLess(superclass) always holds).
-     *  the ordering is given by: (isType, -|closure| for type symbols, id)
+     *  the ordering is given by: (_.isType, -_.baseTypeSeq.length) for type symbols, followed by `id'.
      */
     final def isLess(that: Symbol): Boolean = {
-      def closureLength(sym: Symbol) =
-        if (sym.isAbstractType) 1 + sym.info.bounds.hi.closure.length
-        else sym.info.closure.length
+      def baseTypeSeqLength(sym: Symbol) =
+        if (sym.isAbstractType) 1 + sym.info.bounds.hi.baseTypeSeq.length
+        else sym.info.baseTypeSeq.length
       if (this.isType)
         (that.isType &&
-         { val diff = closureLength(this) - closureLength(that)
+         { val diff = baseTypeSeqLength(this) - baseTypeSeqLength(that)
            diff > 0 || diff == 0 && this.id < that.id })
       else
         that.isType || this.id < that.id
@@ -719,14 +741,14 @@ trait Symbols {
     /** Is this class symbol a subclass of that symbol? */
     final def isNonBottomSubClass(that: Symbol): Boolean =
       this == that || this.isError || that.isError ||
-      info.closurePos(that) >= 0
+      info.baseTypeIndex(that) >= 0
 
     final def isSubClass(that: Symbol): Boolean = {
       isNonBottomSubClass(that) ||
-      this == AllClass ||
-      this == AllRefClass &&
+      this == NothingClass ||
+      this == NullClass &&
       (that == AnyClass ||
-       that != AllClass && (that isSubClass AnyRefClass))
+       that != NothingClass && (that isSubClass AnyRefClass))
     }
 
 // Overloaded Alternatives ---------------------------------------------------------
@@ -858,6 +880,19 @@ trait Symbols {
       info.baseClasses.tail.takeWhile(sc ne)
     }
 
+    /** The package containing this symbol, or NoSymbol if there
+     *  is not one. */
+    def enclosingPackage: Symbol =
+      if (this == NoSymbol) this else {
+        var packSym = this.owner
+        while ((packSym != NoSymbol)
+               && !packSym.isPackageClass) 
+          packSym = packSym.owner
+        if (packSym != NoSymbol)
+          packSym = packSym.linkedModuleOfClass
+        packSym
+      }
+
     /** The top-level class containing this symbol */
     def toplevelClass: Symbol =
       if (owner.isPackageClass) {
@@ -872,10 +907,8 @@ trait Symbols {
           !this.owner.isPackageClass || 
           (this.sourceFile eq null) ||
           (that.sourceFile eq null) ||
-          (this.sourceFile eq that.sourceFile)
-        if (!res) {
-          println("strange linked: "+this+" "+this.locationString+";"+this.sourceFile+"/"+that+that.locationString+";"+that.sourceFile+";"+that.moduleClass.sourceFile)
-        }
+          (this.sourceFile eq that.sourceFile) ||
+          (this.sourceFile == that.sourceFile)
         res
       }
 
@@ -958,17 +991,28 @@ trait Symbols {
 
     /** The symbol overridden by this symbol in given class `ofclazz' */
     final def overriddenSymbol(ofclazz: Symbol): Symbol =
-      matchingSymbol(ofclazz, owner.thisType)
+      if (isClassConstructor) NoSymbol else matchingSymbol(ofclazz, owner.thisType)
 
     /** The symbol overriding this symbol in given subclass `ofclazz' */
     final def overridingSymbol(ofclazz: Symbol): Symbol =
-      matchingSymbol(ofclazz, ofclazz.thisType)
+      if (isClassConstructor) NoSymbol else matchingSymbol(ofclazz, ofclazz.thisType)
 
     final def allOverriddenSymbols: List[Symbol] =
       if (owner.isClass && !owner.info.baseClasses.isEmpty)
         for { bc <- owner.info.baseClasses.tail
               val s = overriddenSymbol(bc)
               if s != NoSymbol } yield s
+      else List()
+
+    /** The virtual classes overridden by this virtual class (excluding `clazz' itself)
+     *  Classes appear in linearization order (with superclasses before subclasses)
+     */
+    final def overriddenVirtuals: List[Symbol] = 
+      if (isVirtualTrait && hasFlag(OVERRIDE))
+        this.owner.info.baseClasses.tail 
+          .map(_.info.decl(name)) 
+          .filter(_.isVirtualTrait)
+          .reverse
       else List()
 
     /** The symbol accessed by a super in the definition of this symbol when
@@ -995,8 +1039,13 @@ trait Symbols {
     }
 
     /** The setter of this value or getter definition, or NoSymbol if none exists */
-    final def setter(base: Symbol): Symbol =
-      base.info.decl(nme.getterToSetter(nme.getterName(name))) filter (_.hasFlag(ACCESSOR))
+    final def setter(base: Symbol): Symbol = setter(base, false)
+
+    final def setter(base: Symbol, hasExpandedName: Boolean): Symbol = {
+      var sname = nme.getterToSetter(nme.getterName(name))
+      if (hasExpandedName) sname = base.expandedSetterName(sname)
+      base.info.decl(sname) filter (_.hasFlag(ACCESSOR))
+    }
 
     /** The case module corresponding to this case class
      *  @pre case class is a member of some other class or package
@@ -1046,6 +1095,9 @@ trait Symbols {
         if (isType) name = name.toTypeName
       }
     }
+
+    def expandedSetterName(simpleSetterName: Name): Name =
+      newTermName(fullNameString('$') + nme.TRAIT_SETTER_SEPARATOR_STRING + simpleSetterName)
 
     /** The expanded name of `name' relative to this class as base
      */
@@ -1129,8 +1181,6 @@ trait Symbols {
       var s = simpleName.decode
       if (s endsWith nme.LOCAL_SUFFIX) 
         s = s.substring(0, s.length - nme.LOCAL_SUFFIX.length)
-      if (s endsWith ".type")
-	s = s.substring(0, s.length - ".type".length)
       s + idString
     }
 
@@ -1140,6 +1190,7 @@ trait Symbols {
      *  Never adds id.
      */
     final def fullNameString(separator: Char): String = {
+      if (this == NoSymbol) return "<NoSymbol>"
       assert(owner != NoSymbol, this)
       var str =
         if (owner.isRoot || 
@@ -1167,7 +1218,7 @@ trait Symbols {
                      if (isClassConstructor) owner.simpleName.decode+idString else nameString))
 
     /** String representation of location. */
-    final def locationString: String =
+    def locationString: String =
       if (owner.isClass &&
           ((!owner.isAnonymousClass && 
             !owner.isRefinementClass && 
@@ -1192,7 +1243,7 @@ trait Symbols {
         typeParamsString + {
           tp.resultType match {
             case TypeBounds(lo, hi) =>
-              (if (lo.typeSymbol == AllClass) "" else " >: " + lo) +
+              (if (lo.typeSymbol == NothingClass) "" else " >: " + lo) +
               (if (hi.typeSymbol == AnyClass) "" else " <: " + hi)
             case rtp =>
               "<: " + rtp
@@ -1232,14 +1283,15 @@ trait Symbols {
     private def compose(ss: List[String]): String =
       ss.filter("" !=).mkString("", " ", "")
 
+    def isSingletonExistential: Boolean =
+      (name endsWith nme.dottype) && (info.bounds.hi.typeSymbol isSubClass SingletonClass) 
+
     /** String representation of existentially bound variable */
-    def existentialToString = {
-      val tname = name.toString
-      if ((tname endsWith ".type") && (info.bounds.hi.typeSymbol isSubClass SingletonClass) &&
-          !settings.debug.value)
-        "val "+tname.substring(0, tname.length - 5)+": "+dropSingletonType(info.bounds.hi)
+    def existentialToString = 
+      if (isSingletonExistential && !settings.debug.value)
+        "val "+name.subName(0, name.length - nme.dottype.length)+": "+
+        dropSingletonType(info.bounds.hi)
       else defString
-    }
   }
 
   /** A class for term symbols */
@@ -1247,6 +1299,12 @@ trait Symbols {
   extends Symbol(initOwner, initPos, initName) {
     override def isTerm = true
 
+/*
+    val marker = initName.toString match {
+      case "forCLDC" => new MarkForCLDC
+      case _ => null
+    }
+*/
     privateWithin = NoSymbol
 
     protected var referenced: Symbol = NoSymbol
@@ -1285,8 +1343,13 @@ trait Symbols {
     
     def setLazyAccessor(sym: Symbol): TermSymbol = {
       // @S: in IDE setLazyAccessor can be called multiple times on same sym
-      assert(hasFlag(LAZY) && (referenced == NoSymbol || referenced == sym), this)
-      referenced = sym
+      if (inIDE && referenced != NoSymbol && referenced != sym) {
+        // do nothing
+        recycle(referenced)
+      } else {
+        assert(hasFlag(LAZY) && (referenced == NoSymbol || referenced == sym), this)
+        referenced = sym
+      }
       this
     }
     
@@ -1312,7 +1375,7 @@ trait Symbols {
           rawowner != NoSymbol && !rawowner.isPackageClass) {
         if (flatname == nme.EMPTY) {
           assert(rawowner.isClass)
-          flatname = newTermName(rawowner.name.toString() + "$" + rawname)
+          flatname = newTermName(compactify(rawowner.name.toString() + "$" + rawname))
         }
         flatname
       } else rawname
@@ -1459,10 +1522,12 @@ trait Symbols {
       else rawowner
 
     override def name: Name =
-      if (phase.flatClasses && rawowner != NoSymbol && !rawowner.isPackageClass) {
+      if ((rawflags & notDEFERRED) != 0 && phase.devirtualized && !phase.erasedTypes) {
+        newTypeName(rawname+"$trait") // (part of DEVIRTUALIZE)
+      } else if (phase.flatClasses && rawowner != NoSymbol && !rawowner.isPackageClass) {
         if (flatname == nme.EMPTY) {
           assert(rawowner.isClass)
-          flatname = newTypeName(rawowner.name.toString() + "$" + rawname)
+          flatname = newTypeName(compactify(rawowner.name.toString() + "$" + rawname))
         }
         flatname
       } else rawname
@@ -1540,6 +1605,7 @@ trait Symbols {
       this
     }
     override def defString: String = toString
+    override def locationString: String = ""
     override def enclClass: Symbol = this
     override def toplevelClass: Symbol = this
     override def enclMethod: Symbol = this
@@ -1577,4 +1643,17 @@ trait Symbols {
     override def toString() =
       "TypeHistory(" + phaseOf(validFrom)+":"+runId(validFrom) + "," + info + "," + prev + ")"
   }
+/*
+  var occs = 0
+
+class MarkForCLDC {
+  val atRun: Int = currentRunId
+  occs += 1
+  println("new "+getClass+" at "+atRun+" ("+occs+" total)")
+  override def finalize() {
+    occs -=1 
+    println("drop "+getClass+" from "+atRun+" ("+occs+" total)")
+  }
+}
+*/
 }

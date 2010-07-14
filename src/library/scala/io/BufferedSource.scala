@@ -29,8 +29,9 @@ object BufferedSource {
   /** constructs a BufferedSource instance from an input stream, using given decoder */
   def fromInputStream(inpStream: InputStream, decoder: CharsetDecoder, buffer_size: Int, do_reset: () => Source): BufferedSource = {
     val byteChannel = Channels.newChannel(inpStream)
-    return new BufferedSource(byteChannel, decoder) {
+    return new {
       val buf_size = buffer_size
+     } with BufferedSource(byteChannel, decoder) {
       override def reset = do_reset()
       def close { inpStream.close }
     }
@@ -59,7 +60,12 @@ abstract class BufferedSource(byteChannel: ReadableByteChannel, decoder: Charset
   def fillBuffer() = {
     byteBuffer.compact()
     charBuffer.position(0)
-    byteChannel.read(byteBuffer) match {
+    var num_bytes = byteChannel.read(byteBuffer)
+    while (0 == num_bytes) {
+      Thread.sleep(1);  // wait 1 ms for new data
+      num_bytes = byteChannel.read(byteBuffer) 
+    }
+    num_bytes match {
       case -1 => 
         endOfInput = true;
         byteBuffer.position(0)

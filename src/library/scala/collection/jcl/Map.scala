@@ -94,7 +94,7 @@ trait Map[K,E] extends MutableIterable[Tuple2[K,E]] with scala.collection.mutabl
       new MutableIterator[(K,E)] {
         def next = i.next
         def hasNext = i.hasNext
-        def remove : Unit = throw new Error
+        def remove : Unit = throw new NoSuchMethodException
       }
     } 
    override def removeKey(key : K) = {
@@ -122,5 +122,8 @@ object Map {
   trait Projection[K,E] extends MutableIterableProjection[(K,E)] with scala.collection.Map.Projection[K,E] with Map[K,E] {
     override def projection = this
     override def map[B](f : ((K,E)) => B) : MutableIterable.Projection[B] = super[MutableIterableProjection].map(f);
+  }
+  def apply[T,E](map0 : java.util.Map[T,E]) = new MapWrapper[T,E] {
+    val underlying = map0
   }
 }

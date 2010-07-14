@@ -8,7 +8,7 @@
 /* imperative version */
 object sumcol
 {
-  def main(args: Array[String]) = 
+  def main(args: Array[String])
   {
     var sum = 0
     var line = Console.readLine

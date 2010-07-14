@@ -312,7 +312,7 @@ with JavaSourceNormalization
           transform(unbox(fun.symbol, expr))
 	    case Apply(fun, args) if (labelDefs contains fun.symbol) =>
           // the type of a continue should be Nothing
-	      mkApply(fun, args) setType definitions.AllClass.tpe
+	      mkApply(fun, args) setType definitions.NothingClass.tpe
 	    case Apply(fun, args) =>
           val funT :: argsT = transformTrees(fun :: args)
           copy.Apply(tree, funT, argsT)

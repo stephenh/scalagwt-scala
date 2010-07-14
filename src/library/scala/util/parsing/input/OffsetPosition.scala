@@ -18,7 +18,7 @@ import collection.mutable.ArrayBuffer
  *
  * @author Martin Odersky
  */
-case class OffsetPosition(source: CharSequence, offset: Int) extends Position {
+case class OffsetPosition(source: java.lang.CharSequence, offset: Int) extends Position {
 
   /** An index that contains all line starts, including first line, and eof */
   private lazy val index: Array[Int] = {
@@ -38,7 +38,7 @@ case class OffsetPosition(source: CharSequence, offset: Int) extends Position {
       val mid = (hi + lo) / 2
       if (offset < index(mid)) hi = mid
       else lo = mid
-    }
+    } 
     lo + 1
   }
    
@@ -50,8 +50,8 @@ case class OffsetPosition(source: CharSequence, offset: Int) extends Position {
    * @param lnum a 1-based integer index into the `document'
    * @return the line at `lnum' (not including a newline)
    */
-  def lineContents(lnum: Int): String =
-    source.subSequence(index(lnum - 1), index(lnum)).toString
+  def lineContents: String =
+    source.subSequence(index(line - 1), index(line)).toString
   
   /** Returns a string representation of the `Position', of the form `line.column' */
   override def toString = line+"."+column

@@ -56,7 +56,7 @@ abstract class CleanUp extends Transform {
         val forName = getMember(ClassClass.linkedModuleOfClass, nme.forName)
         val owner = currentOwner.enclClass
 
-        val cvar = owner.newVariable(pos, unit.fresh.newName("class$Cache"))
+        val cvar = owner.newVariable(pos, unit.fresh.newName(pos, "class$Cache"))
           .setFlag(PRIVATE | STATIC | MUTABLE | SYNTHETIC).setInfo(ClassClass.tpe)
         owner.info.decls.enter(cvar)
         val cdef =
@@ -66,7 +66,7 @@ abstract class CleanUp extends Transform {
             }
           }
 
-        val meth = owner.newMethod(pos, unit.fresh.newName("class$Method"))
+        val meth = owner.newMethod(pos, unit.fresh.newName(pos, "class$Method"))
           .setFlag(PRIVATE | STATIC | SYNTHETIC).setInfo(MethodType(List(), ClassClass.tpe))
         owner.info.decls.enter(meth)
         val mdef = 
@@ -98,7 +98,7 @@ abstract class CleanUp extends Transform {
         case None =>
           val owner = currentOwner.enclClass
           
-          val rmvar = owner.newVariable(pos, unit.fresh.newName("reflMethod$Cache"))
+          val rmvar = owner.newVariable(pos, unit.fresh.newName(pos, "reflMethod$Cache"))
             .setFlag(PRIVATE | STATIC | MUTABLE | SYNTHETIC)
             .setInfo(MethodClass.tpe)
           owner.info.decls.enter(rmvar)
@@ -109,7 +109,7 @@ abstract class CleanUp extends Transform {
               }
             }
           
-          val rmcvar = owner.newVariable(pos, unit.fresh.newName("reflClass$Cache"))
+          val rmcvar = owner.newVariable(pos, unit.fresh.newName(pos, "reflClass$Cache"))
             .setFlag(PRIVATE | STATIC | MUTABLE | SYNTHETIC)
             .setInfo(ClassClass.tpe)
           owner.info.decls.enter(rmcvar)
@@ -120,7 +120,7 @@ abstract class CleanUp extends Transform {
               }
             }
           
-          val rmmeth = owner.newMethod(pos, unit.fresh.newName("reflMethod$Method"))
+          val rmmeth = owner.newMethod(pos, unit.fresh.newName(pos, "reflMethod$Method"))
             .setFlag(STATIC | SYNTHETIC)
             .setInfo(MethodType(List(ClassClass.tpe), MethodClass.tpe))
           owner.info.decls.enter(rmmeth)
@@ -257,7 +257,7 @@ abstract class CleanUp extends Transform {
           case nme.ADD =>
             (definitions.getMember(definitions.BoxesRunTimeClass, newTermName("add")), testForNumber)
           case nme.SUB =>
-            (definitions.getMember(definitions.BoxesRunTimeClass, newTermName("substract")), testForNumber)
+            (definitions.getMember(definitions.BoxesRunTimeClass, newTermName("subtract")), testForNumber)
           case nme.MUL =>
             (definitions.getMember(definitions.BoxesRunTimeClass, newTermName("multiply")), testForNumber)
           case nme.DIV =>
@@ -329,7 +329,7 @@ abstract class CleanUp extends Transform {
                 gen.mkAttributedRef(BoxedUnit_UNIT)
               )
             else if (resType.typeSymbol == ArrayClass) {
-              val sym = currentOwner.newValue(tree.pos, newTermName(unit.fresh.newName)) setInfo ObjectClass.tpe
+              val sym = currentOwner.newValue(tree.pos, newTermName(unit.fresh.newName(tree.pos))) setInfo ObjectClass.tpe
               Block(
                 List(ValDef(sym, tree)),
                 If(
@@ -361,7 +361,7 @@ abstract class CleanUp extends Transform {
           (params zip paramTypes) map { case (param, paramType) =>
             localTyper.typed {
               if (paramType.typeSymbol == ArrayClass) {
-                val sym = currentOwner.newValue(tree.pos, newTermName(unit.fresh.newName)) setInfo ObjectClass.tpe
+                val sym = currentOwner.newValue(tree.pos, newTermName(unit.fresh.newName(tree.pos))) setInfo ObjectClass.tpe
                 val arrayType = {
                   assert(paramType.typeArgs.length == 1)
                   paramType.typeArgs(0).normalize
@@ -410,7 +410,7 @@ abstract class CleanUp extends Transform {
         
         def callAsMethod(paramTypes: List[Type], resType: Type): Tree = localTyper.typed {
           val invokeExc =
-            currentOwner.newValue(tree.pos, newTermName(unit.fresh.newName)) setInfo InvocationTargetExceptionClass.tpe
+            currentOwner.newValue(tree.pos, newTermName(unit.fresh.newName(tree.pos))) setInfo InvocationTargetExceptionClass.tpe
           Try(
             Apply(
               Select(
@@ -528,7 +528,8 @@ abstract class CleanUp extends Transform {
         val tpe = c.typeValue
         atPos(tree.pos) {
           localTyper.typed {
-            if (isValueClass(tpe.typeSymbol) && !forCLDC)
+            if ((isValueClass(tpe.typeSymbol) || tpe.typeSymbol == definitions.UnitClass) 
+                && !forCLDC)
               Select(gen.mkAttributedRef(javaBoxClassModule(tpe.typeSymbol)), "TYPE")
             else if (settings.target.value != "jvm-1.5" && !forMSIL)
               Apply(
@@ -543,9 +544,9 @@ abstract class CleanUp extends Transform {
        * store their result in a local variable. The catch blocks are adjusted as well.
        * The try tree is subsituted by a block whose result expression is read of that variable. */
       case theTry @ Try(block, catches, finalizer) 
-        if theTry.tpe.typeSymbol != definitions.UnitClass && theTry.tpe.typeSymbol != definitions.AllClass =>
+        if theTry.tpe.typeSymbol != definitions.UnitClass && theTry.tpe.typeSymbol != definitions.NothingClass =>
         val tpe = theTry.tpe.widen
-        val tempVar = currentOwner.newValue(theTry.pos, unit.fresh.newName("exceptionResult"))
+        val tempVar = currentOwner.newValue(theTry.pos, unit.fresh.newName(theTry.pos, "exceptionResult"))
           .setInfo(tpe).setFlag(Flags.MUTABLE)
 
         val newBlock = super.transform(Block(Nil, Assign(Ident(tempVar), transform(block))))
@@ -560,6 +561,36 @@ abstract class CleanUp extends Transform {
         val res = Block(List(ValDef(tempVar, EmptyTree), newTry), Ident(tempVar))
         localTyper.typed(res)
         
+      /* Adds @serializable annotation to anonymous function classes
+       * which do not have references to classes
+       * which are not marked @serializable.
+       */
+      case cdef @ ClassDef(mods, name, tparams, impl) =>
+        val sym = cdef.symbol
+        // is this an anonymous function class?
+        if (!sym.hasAttribute(SerializableAttr) && sym.hasFlag(SYNTHETIC) &&
+            (sym.name.toString.indexOf("anonfun") != -1)) {
+          // check whether all of its field members are of serializable type
+          val serializable =
+            sym.info.members forall { m =>
+              m.isMethod || {
+                val typeSym = m.info.typeSymbol
+                // Value types are assumed to be serializable,
+                // reference types must be marked as such.
+                isValueType(typeSym) ||
+                typeSym.hasAttribute(SerializableAttr) ||
+                (m.info.baseClasses exists { bc => bc hasAttribute SerializableAttr })
+              }
+            }
+
+          if (serializable)
+            sym.attributes =
+              AnnotationInfo(definitions.SerializableAttr.tpe, List(), List()) :: sym.attributes
+
+          super.transform(tree)
+        } else
+          super.transform(tree)
+
       case _ =>
         super.transform(tree)
     }

@@ -31,14 +31,15 @@ trait Trees {
 
   // sub-components --------------------------------------------------
 
-  object treePrinters extends TreePrinters {
+  object treePrinters extends {
     val trees: Trees.this.type = Trees.this
-  }
-  val treePrinter = treePrinters.create()
+  } with TreePrinters
 
-  object treeInfo extends TreeInfo {
+  lazy val treePrinter = treePrinters.create()
+
+  object treeInfo extends {
     val trees: Trees.this.type = Trees.this
-  }
+  } with TreeInfo
 
   val copy = new LazyTreeCopier()
 
@@ -58,7 +59,7 @@ trait Trees {
     def isCase      = hasFlag(CASE     )
     def isSealed    = hasFlag(SEALED   )
     def isFinal     = hasFlag(FINAL    )
-    def isTrait     = hasFlag(TRAIT    )
+    def isTrait     = hasFlag(TRAIT | notDEFERRED) // (part of DEVIRTUALIZE)
     def isImplicit  = hasFlag(IMPLICIT )
     def isPublic    = !isPrivate && !isProtected
     def hasFlag(flag: Long) = (flag & flags) != 0
@@ -326,6 +327,7 @@ trait Trees {
    */
   def ClassDef(sym: Symbol, impl: Template): ClassDef =
     posAssigner.atPos(sym.pos) {
+      var flags = sym.flags
       ClassDef(Modifiers(sym.flags),
                sym.name,
                sym.typeParams map TypeDef,
@@ -335,12 +337,13 @@ trait Trees {
   /** Construct class definition with given class symbol, value parameters,
    *  supercall arguments and template body.
    *
-   *  @param sym       the class symbol
-   *  @param vparamss  the value parameters -- if they have symbols they
-   *                   should be owned by `sym'
-   *  @param argss     the supercall arguments
-   *  @param body      the template statements without primary constructor
-   *                   and value parameter fields.
+   *  @param sym        the class symbol
+   *  @param constrMods the modifiers for the class constructor, i.e. as in `class C private (...)'
+   *  @param vparamss   the value parameters -- if they have symbols they
+   *                    should be owned by `sym'
+   *  @param argss      the supercall arguments
+   *  @param body       the template statements without primary constructor
+   *                    and value parameter fields.
    *  @return          ...
    */
   def ClassDef(sym: Symbol, constrMods: Modifiers, vparamss: List[List[ValDef]], argss: List[List[Tree]], body: List[Tree]): ClassDef =
@@ -412,10 +415,10 @@ trait Trees {
   case class DefDef(mods: Modifiers, name: Name, tparams: List[TypeDef],
                     vparamss: List[List[ValDef]], tpt: Tree, rhs: Tree)
        extends ValOrDefDef {
-    assert(tpt.isType)
+    assert(tpt.isType, tpt)
     //assert(kindingIrrelevant(tpt.tpe) || !tpt.tpe.isHigherKinded, tpt.tpe) //@M a method definition should never be typed with a higher-kinded type (values must be classified by types with kind *)
     //tpt.kindStar=true //@M turn on consistency checking in Tree
-    assert(rhs.isTerm)
+    assert(rhs.isTerm, rhs)
   }
 
   def DefDef(sym: Symbol, mods: Modifiers, vparamss: List[List[ValDef]], rhs: Tree): DefDef =
@@ -548,7 +551,7 @@ trait Trees {
       }
     }
     val constrs = 
-      if (constrMods hasFlag TRAIT) {
+      if (constrMods.isTrait) {
         if (body forall treeInfo.isInterfaceMember) List()
         else List(
           DefDef(NoMods, nme.MIXIN_CONSTRUCTOR, List(), List(List()), TypeTree(), Block(lvdefs, Literal(()))))
@@ -807,6 +810,7 @@ trait Trees {
        extends TypTree
 
   trait StubTree extends Tree {
+    def underlying : AnyRef
     override def equalsStructure0(that: Tree)(f : (Tree,Tree) => Boolean): Boolean = this eq that
   }
 /* A standard pattern match

@@ -13,7 +13,7 @@ package scala.tools.nsc.transform
  *    A transform contains a compiler phase which applies a tree transformer.
  *  </p>
  */
-abstract class InfoTransform extends Transform {
+trait InfoTransform extends Transform {
   import global.{Symbol, Type, InfoTransformer, infoTransformers}
 
   def transformInfo(sym: Symbol, tpe: Type): Type
@@ -25,6 +25,7 @@ abstract class InfoTransform extends Transform {
 
   class Phase(prev: scala.tools.nsc.Phase) extends super.Phase(prev) {
     if (infoTransformers.nextFrom(id).pid != id) {
+      // this phase is not yet in the infoTransformers
       val infoTransformer = new InfoTransformer {
         val pid = id
         val changesBaseClasses = InfoTransform.this.changesBaseClasses

@@ -65,8 +65,8 @@ abstract class Checkers {
     val emptyStack = new TypeStack()
 
     val STRING        = REFERENCE(definitions.StringClass)
-    val SCALA_ALL     = REFERENCE(definitions.AllClass)
-    val SCALA_ALL_REF = REFERENCE(definitions.AllRefClass)
+    val SCALA_ALL     = REFERENCE(definitions.NothingClass)
+    val SCALA_ALL_REF = REFERENCE(definitions.NullClass)
 //    val CASE_CLASS    = REFERENCE(definitions.getClass("scala.CaseClass"))
 
     def checkICodes: Unit = {
@@ -178,7 +178,7 @@ abstract class Checkers {
         error(" expected: " + k1 + " but " + k2 + " found")
       }
 
-      b traverse (instr => {
+      for (instr <- b) {
 
         def checkStack(len: Int) {
           if (stack.length < len)
@@ -557,7 +557,7 @@ abstract class Checkers {
           case _ =>
             abort("Unknown instruction: " + instr)
         }
-      });
+      }
       stack
     }
 
@@ -575,11 +575,12 @@ abstract class Checkers {
       var printed = 0
       var buf: List[Instruction] = Nil
 
-      basicBlock.traverseBackwards( (i) =>
+      for (i <- basicBlock.reverse) {
         if (i == instruction || (printed > 0 && printed < 3)) {
           buf = i :: buf
           printed += 1
-        });
+        }
+      }
       buf foreach Console.println
       Console.println("at: " + (buf.head.pos))
     }

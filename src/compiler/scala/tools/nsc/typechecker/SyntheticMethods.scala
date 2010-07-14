@@ -54,7 +54,7 @@ trait SyntheticMethods { self: Analyzer =>
     def hasOverridingImplementation(meth: Symbol): Boolean = if (inIDE) true else {
       val sym = clazz.info.nonPrivateMember(meth.name)
       sym.alternatives exists { sym =>
-        sym != meth && !(sym hasFlag DEFERRED) && !(sym hasFlag SYNTHETIC) && 
+        sym != meth && !(sym hasFlag DEFERRED) && !(sym hasFlag (SYNTHETIC | SYNTHETICMETH)) && 
         (clazz.thisType.memberType(sym) matches clazz.thisType.memberType(meth))
       }
     }
@@ -63,10 +63,9 @@ trait SyntheticMethods { self: Analyzer =>
       newSyntheticMethod(name, flags | OVERRIDE, tpe)
 
     def newSyntheticMethod(name: Name, flags: Int, tpe: Type) = {
-      var method = clazz.newMethod(clazz.pos, name) setFlag ({
-        if (inIDE) flags | SYNTHETIC
-        else flags
-      }) setInfo tpe
+      var method = clazz.newMethod(clazz.pos, name) 
+        .setFlag(flags | (if (inIDE) SYNTHETIC else SYNTHETICMETH))
+        .setInfo(tpe)
       method = clazz.info.decls.enter(method).asInstanceOf[TermSymbol]
       method
     }
@@ -78,18 +77,18 @@ trait SyntheticMethods { self: Analyzer =>
     }
     */
     def productPrefixMethod: Tree = {
-      val method = syntheticMethod(nme.productPrefix, FINAL, PolyType(List(), StringClass.tpe))
+      val method = syntheticMethod(nme.productPrefix, 0, PolyType(List(), StringClass.tpe))
       typer.typed(DefDef(method, vparamss => Literal(Constant(clazz.name.decode))))
     }
 
     def productArityMethod(nargs:Int ): Tree = {
-      val method = syntheticMethod(nme.productArity, FINAL, PolyType(List(), IntClass.tpe))
+      val method = syntheticMethod(nme.productArity, 0, PolyType(List(), IntClass.tpe))
       typer.typed(DefDef(method, vparamss => Literal(Constant(nargs))))
     }
 
     def productElementMethod(accs: List[Symbol]): Tree = {
       //val retTpe = lub(accs map (_.tpe.resultType))
-      val method = syntheticMethod(nme.productElement, FINAL, MethodType(List(IntClass.tpe), AnyClass.tpe/*retTpe*/))
+      val method = syntheticMethod(nme.productElement, 0, MethodType(List(IntClass.tpe), AnyClass.tpe/*retTpe*/))
       typer.typed(DefDef(method, vparamss => Match(Ident(vparamss.head.head), {
 	(for ((sym,i) <- accs.zipWithIndex) yield {
 	  CaseDef(Literal(Constant(i)),EmptyTree, Ident(sym))
@@ -106,7 +105,7 @@ trait SyntheticMethods { self: Analyzer =>
     }
 
     def tagMethod: Tree = {
-      val method = syntheticMethod(nme.tag, FINAL, MethodType(List(), IntClass.tpe))
+      val method = syntheticMethod(nme.tag, 0, MethodType(List(), IntClass.tpe))
       typer.typed(DefDef(method, vparamss => Literal(Constant(clazz.tag))))
     }
 
@@ -121,17 +120,38 @@ trait SyntheticMethods { self: Analyzer =>
         Apply(gen.mkAttributedRef(target), This(clazz) :: (vparamss.head map Ident))))
     }
 
-    /** The equality method for case classes and modules:
+    def equalsSym = 
+      syntheticMethod(nme.equals_, 0, MethodType(List(AnyClass.tpe), BooleanClass.tpe))
+
+    /** The equality method for case modules:
+     *   def equals(that: Any) = this eq that
+     */
+    def equalsModuleMethod: Tree = {
+      val method = equalsSym
+      val methodDef = 
+        DefDef(method, vparamss =>
+          Apply(
+            Select(This(clazz), Object_eq), 
+            List(
+              TypeApply(
+                Select(
+                  Ident(vparamss.head.head),
+                  Any_asInstanceOf),
+                List(TypeTree(AnyRefClass.tpe))))))
+      localTyper.typed(methodDef)
+    }
+
+    /** The equality method for case classes:
      *   def equals(that: Any) = 
-     *     (this eq that) || 
+     *     that.isInstanceOf[AnyRef] &&
+     *     ((this eq that.asInstanceOf[AnyRef]) || 
      *     (that match {
      *       case this.C(this.arg_1, ..., this.arg_n) => true
      *       case _ => false
-     *     })
+     *     }))
      */
-    def equalsMethod: Tree = {
-      val method = syntheticMethod(
-        nme.equals_, 0, MethodType(List(AnyClass.tpe), BooleanClass.tpe))
+    def equalsClassMethod: Tree = {
+      val method = equalsSym
       val methodDef = 
         DefDef(
           method, 
@@ -160,7 +180,7 @@ trait SyntheticMethods { self: Analyzer =>
                   guards += Apply(
                     Select(
                       Ident(name),
-                      if (isVarArg) nme.sameElements else nme.EQEQ),
+                      if (isVarArg) nme.sameElements else nme.EQ),
                     List(Ident(acc)))
                   Bind(name, 
                        if (isVarArg) Star(Ident(nme.WILDCARD))
@@ -173,11 +193,20 @@ trait SyntheticMethods { self: Analyzer =>
                   }
                 )
               }
-              Match(
-                that,
-                List(
-                  CaseDef(pat, guard, Literal(Constant(true))),
-                  CaseDef(Ident(nme.WILDCARD), EmptyTree, Literal(Constant(false)))))
+              val isAnyRef = TypeApply(
+                    Select(that, Any_isInstanceOf),
+                    List(TypeTree(AnyRefClass.tpe)))
+              val cast = TypeApply(
+                    Select(that, Any_asInstanceOf),
+                    List(TypeTree(AnyRefClass.tpe)))
+              val eq_ = Apply(Select( This(clazz) , nme.eq), List(that setType AnyRefClass.tpe)) 
+              val match_ = Match(that, List(
+                    CaseDef(pat, guard, Literal(Constant(true))),
+                    CaseDef(Ident(nme.WILDCARD), EmptyTree, Literal(Constant(false)))))
+              Apply(
+                    Select(isAnyRef, Boolean_and),
+                    List(Apply(Select(eq_, Boolean_or),
+                    List(match_))))
             }
           }
         )
@@ -265,14 +294,18 @@ trait SyntheticMethods { self: Analyzer =>
                 stat.symbol.resetFlag(CASEACCESSOR)
               }
             }
-            if (!inIDE && clazz.info.nonPrivateDecl(nme.tag) == NoSymbol) ts += tagMethod
+            if (!inIDE && !clazz.hasFlag(INTERFACE) && clazz.info.nonPrivateDecl(nme.tag) == NoSymbol) ts += tagMethod
           }
           if (clazz.isModuleClass) {
             if (!hasOverridingImplementation(Object_toString)) ts += moduleToStringMethod
+            // if there's a synthetic method in a parent case class, override its equality
+            // with eq (see #883)
+            val otherEquals = clazz.info.nonPrivateMember(Object_equals.name) 
+            if (otherEquals.owner != clazz && (otherEquals hasFlag SYNTHETICMETH)) ts += equalsModuleMethod
           } else {
             if (!hasOverridingImplementation(Object_hashCode)) ts += forwardingMethod(nme.hashCode_)
             if (!hasOverridingImplementation(Object_toString)) ts += forwardingMethod(nme.toString_)
-            if (!hasOverridingImplementation(Object_equals)) ts += equalsMethod
+            if (!hasOverridingImplementation(Object_equals)) ts += equalsClassMethod
           }
 
           if (!hasOverridingImplementation(Product_productPrefix)) ts += productPrefixMethod

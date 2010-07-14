@@ -125,7 +125,10 @@ final class ZipArchive(file: File, val archive: ZipFile) extends PlainFile(file)
         val name = if (index < 0) path else path.substring(index + 1)
         val home = if (index < 0) "/"  else path.substring(0, index + 1)
         val parent: DirEntry = getDir(dirs, home)
-        assert(!parent.entries.contains(path), this.toString() + " - " + path)
+        // OLD: assert(!parent.entries.contains(path))
+        // MAYBE: assert(!parent.entries.contains(name))
+        //if (parent.entries.contains(name))
+        //  Console.println("XXX: " + this.toString() + " - " + home + "/" + name)
         parent.entries.update(name, new FileEntry(parent, name, path, entry))
       }
     }
@@ -160,6 +163,11 @@ final class ZipArchive(file: File, val archive: ZipFile) extends PlainFile(file)
     final override def path = ZipArchive.this.toString() + "(" + pathInArchive + ")"
     final def getArchive = ZipArchive.this.archive
     def pathInArchive = super.path
+    override def hashCode = super.hashCode + container.hashCode
+    override def equals(that : Any) = super.equals(that) && (that match {
+    case entry : Entry => container == entry.container
+    case _ => false
+    })
   }
 
   //########################################################################
@@ -229,6 +237,8 @@ final class URLZipArchive(url: URL) extends AbstractFile {
     catch { case _ => 0 }
 
   def input: InputStream = url.openStream()
+  
+  def output = throw new Error("unsupported")
 
   override def elements: Iterator[AbstractFile] = {
     if (root eq null) load()

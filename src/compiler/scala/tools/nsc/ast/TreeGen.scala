@@ -281,12 +281,31 @@ abstract class TreeGen {
   /** Make a synchronized block on 'monitor'. */
   def mkSynchronized(monitor: Tree, body: Tree): Tree =     
     Apply(Select(monitor, definitions.Object_synchronized), List(body))
+
+  def wildcardStar(tree: Tree) =
+    atPos(tree.pos) { Typed(tree, Ident(nme.WILDCARD_STAR.toTypeName)) }
+
+  def paramToArg(vparam: Symbol) = {
+    val arg = Ident(vparam)
+    if (vparam.tpe.typeSymbol == RepeatedParamClass) wildcardStar(arg)
+    else arg
+  }
+
+  def paramToArg(vparam: ValDef) = {
+    val arg = Ident(vparam.name)
+    if (treeInfo.isRepeatedParamType(vparam.tpt)) wildcardStar(arg)
+    else arg
+  }
+
+  /** Make forwarder to method `target', passing all parameters in `params' */
+  def mkForwarder(target: Tree, vparamss: List[List[Symbol]]) =
+    (target /: vparamss)((fn, vparams) => Apply(fn, vparams map paramToArg))
     
   def evalOnce(expr: Tree, owner: Symbol, unit: CompilationUnit)(within: (() => Tree) => Tree): Tree =
     if (treeInfo.isPureExpr(expr)) {
       within(() => expr);
     } else {
-      val temp = owner.newValue(expr.pos, unit.fresh.newName())
+      val temp = owner.newValue(expr.pos, unit.fresh.newName(expr.pos, "ev$"))
       .setFlag(SYNTHETIC).setInfo(expr.tpe);
       atPos(expr.pos) {
         Block(List(ValDef(temp, expr)), within(() => Ident(temp) setType expr.tpe))
@@ -300,7 +319,7 @@ abstract class TreeGen {
       if (treeInfo.isPureExpr(expr)) {
         exprs1 += (() => expr)
       } else {
-        val temp = owner.newValue(expr.pos, unit.fresh.newName())
+        val temp = owner.newValue(expr.pos, unit.fresh.newName(expr.pos))
           .setFlag(SYNTHETIC).setInfo(expr.tpe)
         vdefs += ValDef(temp, expr)
         exprs1 += (() => Ident(temp) setType expr.tpe)

@@ -3,7 +3,7 @@
  * @author Philipp Haller
  */
 
-// $Id: FileManager.scala 14161 2008-02-27 19:45:27Z phaller $
+// $Id$
 
 package scala.tools.partest.nest
 
@@ -11,6 +11,33 @@ import java.io.{File, FilenameFilter, IOException, StringWriter}
 import java.net.URI
 
 class ConsoleFileManager extends FileManager {
+
+  var testBuild = System.getProperty("scalatest.build")
+  var testClasses: Option[String] = None
+
+  val debug: Boolean =
+    (System.getProperty("partest.debug", "false") equals "true") ||
+    (System.getProperty("scalatest.debug", "false") equals "true")
+
+  def this(buildPath: String, rawClasses: Boolean) = {
+    this()
+    if (rawClasses)
+      testClasses = Some(buildPath)
+    else
+      testBuild = buildPath
+    // re-run because initialization of default
+    // constructor must be updated
+    findLatest()
+  }
+
+  def this(buildPath: String) = {
+    this(buildPath, false)
+  }
+
+  def this(buildPath: String, rawClasses: Boolean, moreOpts: String) = {
+    this(buildPath, rawClasses)
+    SCALAC_OPTS = SCALAC_OPTS+" "+moreOpts
+  }
 
   var CLASSPATH = System.getProperty("java.class.path", ".")
   NestUI.verbose("CLASSPATH: "+CLASSPATH)
@@ -24,10 +51,6 @@ class ConsoleFileManager extends FileManager {
       error("user.dir property not set")
   }
   val PREFIX = prefixFile.getAbsolutePath
-
-  val debug: Boolean =
-    (System.getProperty("partest.debug", "false") equals "true") ||
-    (System.getProperty("scalatest.debug", "false") equals "true")
 
 /* 
 if [ -d "$PREFIX/test" ]; then 
@@ -73,53 +96,75 @@ else
 
   def findLatest() {
     val testParent = testRootFile.getParentFile
+    NestUI.verbose("test parent: "+testParent)
+
+    def prefixFileWith(parent: File, relPath: String): File =
+      (new File(parent, relPath)).getCanonicalFile
 
     def prefixFile(relPath: String): File =
-      (new File(testParent, relPath)).getCanonicalFile
+      prefixFileWith(testParent, relPath)
 
-    NestUI.verbose("test parent: "+testParent)
-    val dists = new File(testParent, "dists")
-    val build = new File(testParent, "build")
-    val bin = new File(testParent, "bin")
+    if (!testClasses.isEmpty) {
+      testClassesFile = (new File(testClasses.get)).getCanonicalFile
+      NestUI.verbose("Running with classes in "+testClassesFile)
+      latestFile        = prefixFileWith(testClassesFile.getParentFile, "bin")
+      latestLibFile     = prefixFileWith(testClassesFile, "library")
+      latestActFile     = prefixFileWith(testClassesFile, "library")
+      latestCompFile    = prefixFileWith(testClassesFile, "compiler")
+      latestPartestFile = prefixFileWith(testClassesFile, "partest")
+      latestFjbgFile    = prefixFile("lib/fjbg.jar")
+    }
+    else if (testBuild != null) {
+      testBuildFile = prefixFile(testBuild)
+      NestUI.verbose("Running on "+testBuild)
+      latestFile        = prefixFile(testBuild+"/bin")
+      latestLibFile     = prefixFile(testBuild+"/lib/scala-library.jar")
+      latestActFile     = prefixFile(testBuild+"/lib/scala-library.jar")
+      latestCompFile    = prefixFile(testBuild+"/lib/scala-compiler.jar")
+      latestPartestFile = prefixFile(testBuild+"/lib/scala-partest.jar")
+    } else {
+      val dists = new File(testParent, "dists")
+      val build = new File(testParent, "build")
+      // in case of an installed dist, testRootFile is one level deeper
+      val bin = new File(testParent.getParentFile, "bin")
 
-    if (dists.isDirectory) {
-      NestUI.verbose("Running on DISTRIBUTION")
-      latestFile        = prefixFile("dists/latest/bin")
-      latestLibFile     = prefixFile("dists/latest/lib/scala-library.jar")
-      latestActFile     = prefixFile("dists/latest/lib/scala-library.jar")
-      latestCompFile    = prefixFile("dists/latest/lib/scala-compiler.jar")
-      latestPartestFile = prefixFile("dists/latest/lib/scala-partest.jar")
-      latestFjbgFile    = prefixFile("lib/fjbg.jar") // starr
+      if (dists.isDirectory) {
+        NestUI.verbose("Running on DISTRIBUTION")
+        latestFile        = prefixFile("dists/latest/bin")
+        latestLibFile     = prefixFile("dists/latest/lib/scala-library.jar")
+        latestActFile     = prefixFile("dists/latest/lib/scala-library.jar")
+        latestCompFile    = prefixFile("dists/latest/lib/scala-compiler.jar")
+        latestPartestFile = prefixFile("dists/latest/lib/scala-partest.jar")
+      }
+      else if (build.isDirectory && (new File(build, "pack/lib/scala-library.jar")).exists) {
+        NestUI.verbose("Running on SuperSABBUS PACK")
+        latestFile        = prefixFile("build/pack/bin")
+        latestLibFile     = prefixFile("build/pack/lib/scala-library.jar")
+        latestActFile     = prefixFile("build/pack/lib/scala-library.jar")
+        latestCompFile    = prefixFile("build/pack/lib/scala-compiler.jar")
+        latestPartestFile = prefixFile("build/pack/lib/scala-partest.jar")
+      }
+      else if (build.isDirectory) {
+        NestUI.verbose("Running on SABBUS QUICK")
+        latestFile        = prefixFile("build/quick/bin")
+        latestLibFile     = prefixFile("build/quick/lib/library")
+        latestActFile     = prefixFile("build/quick/lib/actors")
+        latestCompFile    = prefixFile("build/quick/lib/compiler")
+        latestPartestFile = prefixFile("build/quick/lib/partest")
+      }
+      else if (bin.isDirectory) {
+        NestUI.verbose("Running on INSTALLED DIST")
+        val p = testParent.getParentFile
+        latestFile        = prefixFileWith(p, "bin")
+        latestLibFile     = prefixFileWith(p, "lib/scala-library.jar")
+        latestActFile     = prefixFileWith(p, "lib/scala-library.jar")
+        latestCompFile    = prefixFileWith(p, "lib/scala-compiler.jar")
+        latestPartestFile = prefixFileWith(p, "lib/scala-partest.jar")
+      }
+      else
+        error("Scala binaries could not be found")
     }
-    else if (build.isDirectory && (new File(build, "quick/lib/scala-library.jar")).exists) {
-      NestUI.verbose("Running on SuperSABBUS QUICK")
-      latestFile        = prefixFile("build/quick/bin")
-      latestLibFile     = prefixFile("build/quick/lib/scala-library.jar")
-      latestActFile     = prefixFile("build/quick/lib/scala-library.jar")
-      latestCompFile    = prefixFile("build/quick/lib/scala-compiler.jar")
-      latestPartestFile = prefixFile("build/quick/lib/scala-partest.jar")
-      latestFjbgFile    = prefixFile("lib/fjbg.jar") // starr
-    }
-    else if (build.isDirectory) {
-      NestUI.verbose("Running on SABBUS QUICK")
-      latestFile        = prefixFile("build/quick/bin")
-      latestLibFile     = prefixFile("build/quick/lib/library")
-      latestActFile     = prefixFile("build/quick/lib/actors")
-      latestCompFile    = prefixFile("build/quick/lib/compiler")
-      latestPartestFile = prefixFile("build/quick/lib/partest")
-      latestFjbgFile    = prefixFile("lib/fjbg.jar") // starr
-    }
-    else if (bin.isDirectory) {
-      NestUI.verbose("Running on INSTALLED DIST")
-      latestFile        = prefixFile("bin")
-      latestLibFile     = prefixFile("lib/scala-library.jar")
-      latestActFile     = prefixFile("lib/scala-library.jar")
-      latestCompFile    = prefixFile("lib/scala-compiler.jar")
-      latestPartestFile = prefixFile("lib/scala-partest.jar")
-    }
-    else
-      error("Scala binaries could not be found")
-    
+
     BIN_DIR = latestFile.getAbsolutePath
     LATEST_LIB = latestLibFile.getAbsolutePath
     LATEST_COMP = latestCompFile.getAbsolutePath
@@ -145,14 +190,14 @@ else
   var SCALA: String = ""
   var SCALAC_CMD: String = ""
 
-  val SCALAC_OPTS = System.getProperty("scalatest.scalac_opts", "-deprecation")
-
   var latestFile: File = _
   var latestLibFile: File = _
   var latestActFile: File = _
   var latestCompFile: File = _
   var latestPartestFile: File = _
   var latestFjbgFile: File = _
+  var testBuildFile: File = _
+  var testClassesFile: File = _
   // initialize above fields
   findLatest()
 

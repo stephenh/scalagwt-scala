@@ -7,7 +7,8 @@
 package scala.tools.nsc.symtab.clr
 
 import java.io.File
-import java.util.{Arrays, Comparator, StringTokenizer}
+import java.util.{Comparator, StringTokenizer}
+import scala.util.Sorting
 
 import ch.epfl.lamp.compiler.msil._
 
@@ -63,11 +64,12 @@ abstract class CLRTypes {
   private var alltypes: Array[Type] = _
 
   def init() = try { // initialize
-
+/*
     val assems = new StringTokenizer(global.settings.assemrefs.value, File.pathSeparator)
     while (assems.hasMoreTokens()) {
       assemrefs += new File(assems.nextToken())
     }
+    */
 
     val mscorlib = findAssembly("mscorlib.dll")
     Type.initMSCORLIB(mscorlib)
@@ -116,22 +118,13 @@ abstract class CLRTypes {
       alltypes = Array.concat(alltypes, atypes)
     }
 
-    val typeNameComparator: Comparator[Any] =
-      new Comparator[Any]() {
-        def compare(o1: Any, o2: Any): Int = {
-          val t1 = o1.asInstanceOf[Type]
-          val t2 = o2.asInstanceOf[Type]
-          t1.FullName.compareTo(t2.FullName)
-        }
-      }
-
-    Arrays.sort(alltypes.asInstanceOf[Array[Any]], typeNameComparator)
+    Sorting.stableSort(alltypes, (t1: Type, t2: Type) => (t1.FullName compareTo t2.FullName) < 0)
     this.alltypes = alltypes
   }
   catch {
     case e: RuntimeException =>
       Console.println(e.getMessage)
-      exit(1)
+      // no bloody exits! exit(1)
   }
 
   //##########################################################################
@@ -160,22 +153,24 @@ abstract class CLRTypes {
   private var assemblies: ListBuffer[Assembly] = new ListBuffer()
 
   // a set of all directories and assembly files
-  private var assemrefs: Set[File] = new HashSet()
+  //private var assemrefs: Set[File] = new HashSet()
+  
+  //def assembly(file : File) = assemrefs += file
 
   /** Load the assembly with the given name
    */
   private def findAssembly(name: String): Assembly = {
     // see if the assembly is referenced directly
-    for (file <- assemrefs.elements if file.getName() == name) {
+    for (file <- global.assemrefs.elements if file.getName() == name) {
       val assem = Assembly.LoadFrom(file.getPath())
       if (assem != null) {
-	assemrefs -= file
+	global.assemrefs -= file
 	assemblies += assem
 	return assem
       }
     }
     // look in directories specified with the '-r' option
-    for (dir <- assemrefs.elements if dir.isDirectory()) {
+    for (dir <- global.assemrefs.elements if dir.isDirectory()) {
       val file = new File(dir, name)
       if (file.exists()) {
 	val assem = Assembly.LoadFrom(file.getPath())
@@ -201,7 +196,7 @@ abstract class CLRTypes {
   /** Load the rest of the assemblies specified with the '-r' option
    */
   private def findAllAssemblies() {
-    for (file <- assemrefs.elements) {
+    for (file <- global.assemrefs.elements) {
       if (file.isFile()) {
         //System.out.println("Loading assembly " + file)
 	val assem = Assembly.LoadFrom(file.getPath())
@@ -209,9 +204,8 @@ abstract class CLRTypes {
 	  assemblies += assem
 	}
       }
-      assemrefs -= file
     }
-    assert(assemrefs.isEmpty, assemrefs.toString)
+    global.assemrefs.clear
   }
 
   //##########################################################################
@@ -219,7 +213,7 @@ abstract class CLRTypes {
 
   /** Find the position of the first type whose name starts with
    *  the given prefix; return the length of the types array if no match
-   *  is found so the result can be used to terminate loop conditions
+   *  is found so the result canbe used to terminate loop conditions
    */
   private def findFirst(prefix: String): Int = {
     var m = 0

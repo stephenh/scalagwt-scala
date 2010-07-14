@@ -13,7 +13,7 @@ package scala
 
 
 import Predef._
-import collection.mutable.{Buffer, ListBuffer}
+import collection.mutable.{Buffer, ListBuffer, ArrayBuffer}
 
 /** The <code>Iterator</code> object provides various functions for
  *  creating specialized iterators.
@@ -62,7 +62,7 @@ object Iterator {
       private var i = start
       val end = if (start + length < xs.length) start + length else xs.length
       override def hasNext: Boolean = i < end
-      def next: a =
+      def next(): a =
         if (hasNext) { val x = xs(i) ; i += 1 ; x }
         else throw new NoSuchElementException("next on empty iterator")
         
@@ -189,7 +189,23 @@ object Iterator {
   def from(start: Int, step: Int => Int): Iterator[Int] = new Iterator[Int] {
     private var i = start
     override def hasNext: Boolean = true
-    def next: Int = { val j = i; i = step(i); j }
+    def next(): Int = { val j = i; i = step(i); j }
+  }
+
+  /** Create an iterator that is the concantenation of all iterators
+   *  returned by a given iterator of iterators.
+   *   @param its   The iterator which returns on each call to next
+   *                a new iterator whose elements are to be concatenated to the result.
+   */
+  def flatten[T](its: Iterator[Iterator[T]]): Iterator[T] = new Iterator[T] {
+    private var it = its.next
+    def hasNext: Boolean = {
+      while (!it.hasNext && its.hasNext) it = its.next
+      it.hasNext
+    }
+    def next(): T = 
+      if (hasNext) it.next
+      else empty.next()
   }
 }
 
@@ -219,7 +235,7 @@ trait Iterator[+A] {
    *  @return  the new iterator
    */
   @throws(classOf[NoSuchElementException])
-  def take(n: Int) = new Iterator[A] {
+  def take(n: Int): Iterator[A] = new Iterator[A] {
     var remaining = n
     def hasNext = remaining > 0 && Iterator.this.hasNext
     def next(): A =
@@ -234,6 +250,14 @@ trait Iterator[+A] {
    */
   def drop(n: Int): Iterator[A] =
     if (n > 0 && hasNext) { next; drop(n - 1) } else this
+
+  /** A sub-iterator of <code>until - from elements 
+   *  starting at index <code>from</code>
+   *
+   *  @param from   The index of the first element of the slice
+   *  @param until    The index of the element following the slice
+   */
+  def slice(from: Int, until: Int): Iterator[A] = drop(from).take(until - from)
 
   /** Returns a new iterator that maps all elements of this iterator
    *  to new elements using function <code>f</code>.
@@ -364,7 +388,6 @@ trait Iterator[+A] {
   /** Return an iterator that pairs each element of this iterator
    *  with its index, counting from 0.
    *
-   *  @param start the index of the first element.
    *  @return      an iterator yielding <code>{a<sub>0</sub>,0},
    *               {a<sub>1</sub>,1}...</code> where <code>a<sub>i</sub></code>
    *               are the elements from this iterator.
@@ -437,6 +460,48 @@ trait Iterator[+A] {
     }
     res
   }
+  
+  /** Returns index of the first element satisying a predicate, or -1.
+   *
+   *  @note may not terminate for infinite-sized collections.
+   *  @param  p the predicate
+   *  @return   the index of the first element satisfying <code>p</code>,
+   *           or -1 if such an element does not exist
+   */
+  def findIndexOf(p: A => Boolean): Int = {
+    var i = 0
+    var found = false
+    while (!found && hasNext) {
+      if (p(next)) {
+        found = true
+      } else {
+        i += 1
+      }
+    }
+    if (found) i else -1
+  }
+  
+  /** Returns the index of the first occurence of the specified
+   *  object in this iterable object.
+   *
+   *  @note may not terminate for infinite-sized collections.
+   *  @param  elem  element to search for.
+   *  @return the index in this sequence of the first occurence of the
+   *          specified element, or -1 if the sequence does not contain
+   *          this element.
+   */
+  def indexOf[B >: A](elem: B): Int = {
+    var i = 0
+    var found = false
+    while (!found && hasNext) {
+      if (next == elem) {
+        found = true
+      } else {
+        i += 1
+      }
+    }
+    if (found) i else -1
+  }
 
   /** Combines the elements of this iterator together using the binary
    *  operator <code>op</code>, from left to right, and starting with
@@ -497,7 +562,7 @@ trait Iterator[+A] {
    *  @throws Predef.UnsupportedOperationException if the iterator is empty.
    */
   @throws(classOf[UnsupportedOperationException])
-  def reduceLeft[B >: A](op: (B, B) => B): B = {
+  def reduceLeft[B >: A](op: (B, A) => B): B = {
     if (hasNext) foldLeft[B](next)(op)
     else throw new UnsupportedOperationException("empty.reduceLeft")
   }
@@ -513,7 +578,7 @@ trait Iterator[+A] {
    *  @throws Predef.UnsupportedOperationException if the iterator is empty.
    */
   @throws(classOf[UnsupportedOperationException])
-  def reduceRight[B >: A](op: (B, B) => B): B = {
+  def reduceRight[B >: A](op: (A, B) => B): B = {
     if (!hasNext) throw new UnsupportedOperationException("empty.reduceRight")
     val x = next
     if (hasNext) op(x, reduceRight(op))
@@ -532,7 +597,7 @@ trait Iterator[+A] {
     private var cnt = -1
     def count = cnt
     def hasNext: Boolean = Iterator.this.hasNext
-    def next: A = { cnt += 1; Iterator.this.next }
+    def next(): A = { cnt += 1; Iterator.this.next }
   }
 
   /** Creates two new iterators that both iterate over the same elements
@@ -549,7 +614,7 @@ trait Iterator[+A] {
         ((this == ahead) && Iterator.this.hasNext) ||
         ((this != ahead) && (!xs.isEmpty || !ys.isEmpty || Iterator.this.hasNext))
       )
-      def next: A = Iterator.this.synchronized {
+      def next(): A = Iterator.this.synchronized {
         if (this == ahead) {
           val e = Iterator.this.next
           xs = e :: xs; e
@@ -627,6 +692,16 @@ trait Iterator[+A] {
     while (hasNext) res += next
     res.toList
   }
+  
+  /** Collect elements into a seq.
+   *
+   * @return  a seq which enumerates all elements of this iterator.
+   */
+  def collect: Seq[A] = {
+    val buffer = new ArrayBuffer[A]
+    this copyToBuffer buffer
+    buffer.readOnly
+  }
 
   /** Returns a string representation of the elements in this iterator. The resulting string
    *  begins with the string <code>start</code> and is finished by the string
@@ -655,6 +730,15 @@ trait Iterator[+A] {
    *  @return a string representation of this iterable object.
    */
   def mkString(sep: String): String = this.mkString("", sep, "")
+
+  /** Returns a string representation of this iterable object. The string
+   *  representations of elements (w.r.t. the method <code>toString()</code>)
+   *  are separated by a comma.
+   *
+   *  @return a string representation of this iterable object.
+   */
+  def mkString: String =
+    mkString("")
 
   /** Write all elements of this string into given string builder.
    *

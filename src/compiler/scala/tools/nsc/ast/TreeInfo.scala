@@ -106,9 +106,9 @@ abstract class TreeInfo {
     case Select(qual, _) =>
       tree.symbol.isVariable ||
       (mayBeVarGetter(tree.symbol) && 
-       tree.symbol.owner.info.decl(nme.getterToSetter(tree.symbol.name)) != NoSymbol)
+       tree.symbol.owner.info.member(nme.getterToSetter(tree.symbol.name)) != NoSymbol)
     case Apply(Select(qual, nme.apply), _) =>
-      qual.tpe.decl(nme.update) != NoSymbol
+      qual.tpe.member(nme.update) != NoSymbol
     case _ =>
       false
   }
@@ -159,6 +159,7 @@ abstract class TreeInfo {
   /** Is type a of the form T* ? */
   def isRepeatedParamType(tpt: Tree) = tpt match {
     case AppliedTypeTree(Select(_, rp), _) => rp == nme.REPEATED_PARAM_CLASS_NAME.toTypeName
+    case TypeTree() => tpt.tpe.typeSymbol == definitions.RepeatedParamClass
     case _ => false
   }
 
@@ -199,6 +200,13 @@ abstract class TreeInfo {
     case AppliedTypeTree(constr, args) => 
       mayBeTypePat(constr) || args.exists(_.isInstanceOf[Bind])
     case SelectFromTypeTree(tp, _) => mayBeTypePat(tp)
+    case _ => false
+  }
+
+  /** Is this argument node of the form <expr> : _* ?
+   */
+  def isWildcardStarArg(tree: Tree): Boolean = tree match {
+    case Typed(expr, Ident(name)) => name == nme.WILDCARD_STAR.toTypeName
     case _ => false
   }
 

@@ -8,6 +8,7 @@ package scala.tools.nsc.symtab
 
 import scala.tools.nsc.util.NameTransformer
 import scala.tools.util.UTF8Codec
+import java.security.MessageDigest
 
 /** The class <code>Names</code> ...
  *
@@ -18,9 +19,12 @@ class Names {
 
 // Operations -------------------------------------------------------------
 
-  private val HASH_SIZE = 0x8000
-  private val HASH_MASK = 0x7FFF
-  private val NAME_SIZE = 0x20000
+  private final val HASH_SIZE  = 0x8000
+  private final val HASH_MASK  = 0x7FFF
+  private final val NAME_SIZE  = 0x20000
+
+  private final val MaxFileNameLength = 255
+  private final val MaxClassNameLength = MaxFileNameLength - 6 // leave space for ".class"
 
   final val nameDebug = false
 
@@ -42,7 +46,7 @@ class Names {
   private def hashValue(cs: Array[Char], offset: Int, len: Int): Int =
     if (len > 0)
       (len * (41 * 41 * 41) +
-       cs(offset) * (41 * 41) +
+       cs(offset) * (41 * 41) +      
        cs(offset + len - 1) * 41 +
        cs(offset + (len >> 1)))
     else 0;
@@ -80,6 +84,32 @@ class Names {
     else nc = nc + len
   }
 
+  private lazy val md5 = MessageDigest.getInstance("MD5")
+
+  private def toMD5(s: String, prefixSuffixLen: Int) = {
+//  println("COMPACTIFY "+s)
+    val cs: Array[Char] = s.toCharArray
+    val bytes = new Array[Byte](cs.length * 4)
+    val len = UTF8Codec.encode(cs, 0, bytes, 0, cs.length)
+    md5.update(bytes, 0, len)
+    val hash = md5.digest()
+    val sb = new StringBuilder
+    sb.append(cs, 0, prefixSuffixLen)
+    sb.append("$$$$")
+    for (i <- 0 until hash.length) {
+      val b = hash(i)
+      sb.append(((b >> 4) & 0xF).toHexString)
+      sb.append((b & 0xF).toHexString)
+    }
+    sb.append("$$$$")
+    sb.append(cs, len - prefixSuffixLen, prefixSuffixLen)
+    sb.toString
+  }
+
+  def compactify(s: String): String =
+    if (s.length <= MaxClassNameLength) s 
+    else toMD5(s, MaxClassNameLength / 4)
+
   /** Create a term name from the characters in <code>cs[offset..offset+len-1]</code>.
    *
    *  @param cs     ...
@@ -91,14 +121,14 @@ class Names {
     val h = hashValue(cs, offset, len) & HASH_MASK
     var n = termHashtable(h)
     while ((n ne null) && (n.length != len || !equals(n.start, cs, offset, len)))
-      n = n.next;
+    n = n.next;
     if (n eq null) {
       n = new TermName(nc, len, h)
       enterChars(cs, offset, len)
     }
     n
   }
-
+  
   /** create a term name from string
    */
   def newTermName(s: String): Name =

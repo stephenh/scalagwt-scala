@@ -7,7 +7,7 @@
 
 package scala.tools.nsc.backend.msil
 
-import java.io.File
+import java.io.{File, IOException}
 import java.nio.{ByteBuffer, ByteOrder}
 
 import scala.collection.mutable.{Map, HashMap, HashSet, Stack}
@@ -50,7 +50,6 @@ abstract class GenMSIL extends SubComponent {
 
       classes.values foreach codeGenerator.createTypeBuilder
       classes.values foreach codeGenerator.createClassMembers
-
 
       try {
         classes.values foreach codeGenerator.genClass
@@ -138,11 +137,11 @@ abstract class GenMSIL extends SubComponent {
     private def initMappings() {
       mapType(definitions.AnyClass, MOBJECT)
       mapType(definitions.AnyRefClass, MOBJECT)
-      //mapType(definitions.AllRefClass, clrTypes.getType("scala.AllRef$"))
-      //mapType(definitions.AllClass, clrTypes.getType("scala.All$"))
+      //mapType(definitions.NullClass, clrTypes.getType("scala.AllRef$"))
+      //mapType(definitions.NothingClass, clrTypes.getType("scala.All$"))
       // FIXME: for some reason the upper two lines map to null
-      mapType(definitions.AllRefClass, EXCEPTION)
-      mapType(definitions.AllClass, EXCEPTION)
+      mapType(definitions.NullClass, EXCEPTION)
+      mapType(definitions.NothingClass, EXCEPTION)
 
       val jEmpty = new Array[Type](0)
       val jString1 = Array(JSTRING.tpe)
@@ -204,7 +203,6 @@ abstract class GenMSIL extends SubComponent {
       mapType(definitions.LongClass, MLONG)
       mapType(definitions.FloatClass, MFLOAT)
       mapType(definitions.DoubleClass, MDOUBLE)
-
     }
 
     var clasz: IClass = _
@@ -218,12 +216,14 @@ abstract class GenMSIL extends SubComponent {
     var assemName: String = _
     var firstSourceName = ""
     var outDir: File = _
+    var srcPath: File = _
+    var moduleName: String = _
 
     def initAssembly() {
 
       assemName = settings.assemname.value
-      if (assemName == "") {
 
+      if (assemName == "") {
         if (entryPoint != null) {
           assemName = msilName(entryPoint.enclClass)
           // remove the $ at the end (from module-name)
@@ -239,24 +239,22 @@ abstract class GenMSIL extends SubComponent {
         if (assemName.endsWith(".il"))
           assemName = assemName.substring(0, assemName.length()-3)
         val f: File = new File(assemName)
-        outDir = f.getParentFile()
         assemName = f.getName()
       }
-      if (outDir == null)
-        outDir = new File(".")
+      
+      outDir = new File(settings.outdir.value)
 
+      srcPath = new File(settings.sourcepath.value)
 
       val assemblyName = new AssemblyName()
       assemblyName.Name = assemName
-      massembly = AssemblyBuilder.DefineDynamicAssembly(assemblyName)
+      massembly = AssemblyBuilderFactory.DefineDynamicAssembly(assemblyName)
 
-      val moduleName = assemName + (if (entryPoint == null) ".dll" else ".exe")
+      moduleName = assemName + (if (entryPoint == null) ".dll" else ".exe")
       // filename here: .dll or .exe (in both parameters), second: give absolute-path
       mmodule = massembly.DefineDynamicModule(moduleName,
                                               new File(outDir, moduleName).getAbsolutePath())
       assert (mmodule != null)
-      initMappings()
-
     }
 
 
@@ -453,34 +451,26 @@ abstract class GenMSIL extends SubComponent {
         code.Emit(OpCodes.Ret)
       }
       createTypes()
-      val filename = new File(outDir, assemName + ".msil").getPath()
+      val filename = outDir.getPath() 
       if (settings.debug.value)
-        log("Output file name: " + filename)
+        log("Output path: " + filename)
       try {
-        massembly.Save(filename)
-        val ilasm = Properties.msilILasm
-        if (ilasm != "") {
-          val cmd = ilasm + " " + filename
-          if (settings.debug.value)
-            log("Executing command: " + cmd)
-          try {
-            Runtime.getRuntime().exec(cmd)
-          } catch {
-            case _ =>
-              Console.println("Cannot run command: " + cmd)
-              exit(1)
-          }
-        }
+        massembly.Save(filename, srcPath.getPath())
       } catch {
-        case _: Error => abort("Could not save file " + filename)
+        case e:IOException => abort("Could not write to " + filename + ": " + e.getMessage())
       }
     }
 
     private def createTypes() {
       for (sym <- classes.keys) {
+        val iclass   = classes(sym)
+        val tBuilder = types(sym.asInstanceOf[clrTypes.global.Symbol]).asInstanceOf[TypeBuilder]
+          
         if (settings.debug.value)
-          log("Calling CreatType for " +  sym + ", " + types(sym.asInstanceOf[clrTypes.global.Symbol]))
-        types(sym.asInstanceOf[clrTypes.global.Symbol]).asInstanceOf[TypeBuilder].CreateType()
+          log("Calling CreatType for " + sym + ", " + tBuilder.toString)
+
+        tBuilder.CreateType()
+        tBuilder.setSourceFilepath(iclass.cunit.source.file.path)
       }
     }
 
@@ -1221,7 +1211,7 @@ abstract class GenMSIL extends SubComponent {
 
       var lastLineNr: Int = 0
 
-      b traverse ( instr => {
+      for (instr <- b) {
 
         needAdditionalRet = false
 
@@ -1610,7 +1600,7 @@ abstract class GenMSIL extends SubComponent {
             ()
         }
 
-      }) // end b traverse instr => { .. }
+      } // end for (instr <- b) { .. }
 
       lastBlock = b // this way, saveResult knows lastBlock
 
@@ -1800,7 +1790,7 @@ abstract class GenMSIL extends SubComponent {
     def computeLocalVarsIndex(m: IMethod) {
       val params = m.params
       var idx = 1
-      if (isStaticSymbol(m.symbol))
+      if (m.symbol.isStaticMember)
         idx = 0
 
       for (l <- params) {
@@ -1841,10 +1831,10 @@ abstract class GenMSIL extends SubComponent {
                                !sym.hasFlag(Flags.JAVA)) "$" else ""
       // Flags.JAVA: "symbol was not defined by a scala-class" (java, or .net-class)
 
-      if (sym == definitions.AllClass)
-        return "scala.All$"
-      else if (sym == definitions.AllRefClass)
-        return "scala.AllRef$"
+      if (sym == definitions.NothingClass)
+        return "scala.runtime.Nothing$"
+      else if (sym == definitions.NullClass)
+        return "scala.runtime.Null$"
 
       (if (sym.isClass || (sym.isModule && !sym.isMethod))
         sym.fullNameString
@@ -1858,7 +1848,11 @@ abstract class GenMSIL extends SubComponent {
     def msilTypeFlags(sym: Symbol): Int = {
       var mf: Int = TypeAttributes.AutoLayout | TypeAttributes.AnsiClass
 
-      mf = mf | (if (sym hasFlag Flags.PRIVATE) TypeAttributes.NotPublic else TypeAttributes.Public)
+      if(sym.isNestedClass) {
+        mf = mf | (if (sym hasFlag Flags.PRIVATE) TypeAttributes.NestedPrivate else TypeAttributes.NestedPublic)
+      } else {
+        mf = mf | (if (sym hasFlag Flags.PRIVATE) TypeAttributes.NotPublic else TypeAttributes.Public)
+      }
       mf = mf | (if (sym hasFlag Flags.ABSTRACT) TypeAttributes.Abstract else 0)
       mf = mf | (if (sym.isTrait && !sym.isImplClass) TypeAttributes.Interface else TypeAttributes.Class)
       mf = mf | (if (sym isFinal) TypeAttributes.Sealed else 0)
@@ -1884,7 +1878,7 @@ abstract class GenMSIL extends SubComponent {
          else MethodAttributes.Public)
 
       if (!sym.isClassConstructor) {
-        if (isStaticSymbol(sym))
+        if (sym.isStaticMember)
           mf = mf | FieldAttributes.Static
         else {
           mf = mf | MethodAttributes.Virtual
@@ -1907,7 +1901,7 @@ abstract class GenMSIL extends SubComponent {
       if (sym hasFlag Flags.FINAL)
         mf = mf | FieldAttributes.InitOnly
 
-      if (isStaticSymbol(sym))
+      if (sym.isStaticMember)
         mf = mf | FieldAttributes.Static
 
       // TRANSIENT: "not nerialized", VOLATILE: doesn't exist on .net
@@ -1921,11 +1915,6 @@ abstract class GenMSIL extends SubComponent {
 
       mf.toShort
     }
-
-
-    def isStaticSymbol(s: Symbol): Boolean =
-      s.hasFlag(Flags.STATIC) || s.hasFlag(Flags.STATICMEMBER) || s.owner.isImplClass
-
 
     ////////////////////// builders, types ///////////////////////
 
@@ -2008,9 +1997,8 @@ abstract class GenMSIL extends SubComponent {
     }
 
     def createTypeBuilder(iclass: IClass) {
-      def getMsilType(tpe: Type): MsilType = {
-        val sym = tpe.typeSymbol
-        types.get(sym.asInstanceOf[clrTypes.global.Symbol]) match {
+      def msilTypeFromSym(sym: Symbol): MsilType = {
+	types.get(sym.asInstanceOf[clrTypes.global.Symbol]) match {
           case Some(mtype) => mtype
           case None => createTypeBuilder(classes(sym)); types(sym.asInstanceOf[clrTypes.global.Symbol])
         }
@@ -2024,11 +2012,12 @@ abstract class GenMSIL extends SubComponent {
         if (sym.info.parents.isEmpty) List(definitions.ObjectClass.tpe)
         else sym.info.parents.removeDuplicates
 
-      val superType = if (isInterface(sym)) null else getMsilType(parents.head)
+      val superType = if (isInterface(sym)) null else msilTypeFromSym(parents.head.typeSymbol)
       if (settings.debug.value)
         log("super type: " + parents(0).typeSymbol + ", msil type: " + superType)
 
-      val interfaces: Array[MsilType] = parents.tail.map(getMsilType).toArray
+      val interfaces: Array[MsilType] =
+	parents.tail.map(p => msilTypeFromSym(p.typeSymbol)).toArray
       if (parents.length > 1) {
         if (settings.debug.value){
           log("interfaces:")
@@ -2038,10 +2027,16 @@ abstract class GenMSIL extends SubComponent {
         }
       }
 
-      //TODO here: if the class is not top-level, use DefineNestedType?
-      val tBuilder =
-        mmodule.DefineType(msilName(sym), msilTypeFlags(sym), superType, interfaces)
-      mapType(sym, tBuilder)
+      if (sym.isNestedClass) {
+	val ownerT = msilTypeFromSym(sym.owner).asInstanceOf[TypeBuilder]
+	val tBuilder =
+	  ownerT.DefineNestedType(msilName(sym), msilTypeFlags(sym), superType, interfaces)
+	mapType(sym, tBuilder)
+      } else {
+	val tBuilder =
+          mmodule.DefineType(msilName(sym), msilTypeFlags(sym), superType, interfaces)
+	mapType(sym, tBuilder)
+      }
     } // createTypeBuilder
 
     def createClassMembers(iclass: IClass) {
@@ -2104,7 +2099,7 @@ abstract class GenMSIL extends SubComponent {
         }
       }
 
-      if (isStaticModule(iclass.symbol)){
+      if (isStaticModule(iclass.symbol)) {
         addModuleInstanceField(iclass.symbol)
         notInitializedModules += iclass.symbol
         addStaticInit(iclass.symbol)
@@ -2117,8 +2112,13 @@ abstract class GenMSIL extends SubComponent {
         sym.isModuleClass && !sym.isImplClass && !sym.isNestedClass
       }
 
+    // if the module is lifted it does not need to be initialized in
+    // its static constructor, and the MODULE$ field is not required.
+    // the outer class will care about it.
     private def isStaticModule(sym: Symbol): Boolean = {
-      sym.isModuleClass && !sym.isImplClass && !sym.hasFlag(Flags.LIFTED)
+      // .net inner classes: removed '!sym.hasFlag(Flags.LIFTED)', added
+      // 'sym.isStatic'. -> no longer compatible without skipping flatten!
+      sym.isModuleClass && sym.isStatic && !sym.isImplClass
     }
 
     private def isCloneable(sym: Symbol): Boolean = {
@@ -2178,6 +2178,9 @@ abstract class GenMSIL extends SubComponent {
 
       val instanceConstructor = constructors(sym.primaryConstructor.asInstanceOf[clrTypes.global.Symbol])
 
+      // there are no constructor parameters. assuming the constructor takes no parameter
+      // is fine: we call (in the static constructor) the constructor of the module class,
+      // which takes no arguments - an object definition cannot take constructor arguments.
       sicode.Emit(OpCodes.Newobj, instanceConstructor)
       // the stsfld is done in the instance constructor, just after the super call.
       sicode.Emit(OpCodes.Pop)
@@ -2200,9 +2203,11 @@ abstract class GenMSIL extends SubComponent {
                                                  MOBJECT,
                                                  MsilType.EmptyTypes)
 
+      val iclass = classes(sym)
+
       for (m <- sym.tpe.nonPrivateMembers
            if m.owner != definitions.ObjectClass && !m.hasFlag(Flags.PROTECTED) &&
-           m.isMethod && !m.isClassConstructor && !isStaticSymbol(m) && !m.hasFlag(Flags.CASE))
+           m.isMethod && !m.isClassConstructor && !m.isStaticMember && !m.hasFlag(Flags.CASE))
         {
           if (settings.debug.value)
             log("   Mirroring method: " + m)
@@ -2235,6 +2240,7 @@ abstract class GenMSIL extends SubComponent {
       addSymtabAttribute(sym.sourceModule, mirrorTypeBuilder)
 
       mirrorTypeBuilder.CreateType()
+      mirrorTypeBuilder.setSourceFilepath(iclass.cunit.source.file.path)
     }
 
 

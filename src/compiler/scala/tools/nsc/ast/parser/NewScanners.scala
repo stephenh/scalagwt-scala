@@ -105,16 +105,17 @@ trait NewScanners {
       do {
         fill(next)
       } while (next.code match {
-      case NEWLINE|NEWLINES|WHITESPACE|COMMENT => 
-        assert((next.code != COMMENT) == (xmlOk))
-        hasNewline = hasNewline || next.code == NEWLINE || next.code == NEWLINES
-        if (next.code == COMMENT)
-          doc = next.value.asInstanceOf[Option[String]].getOrElse("")
-        true
-      case _ => false
-      })
-      hasNewline
+        case NEWLINE|NEWLINES|WHITESPACE|COMMENT => 
+          assert((next.code != COMMENT) == (xmlOk))
+          hasNewline = hasNewline || next.code == NEWLINE || next.code == NEWLINES
+          if (next.code == COMMENT)
+            doc = next.value.asInstanceOf[Option[String]].getOrElse("")
+          true
+        case _ => false
+        })
+        hasNewline
     }
+
     def flushDoc = {
       val ret = doc
       doc = ""
@@ -135,7 +136,6 @@ trait NewScanners {
       case LPAREN => RPAREN
       case LBRACKET => RBRACKET
       case CASE => 
-        assert(true)
         ARROW
       case RBRACE => 
         while (!sepRegions.isEmpty && sepRegions.head != RBRACE)
@@ -147,7 +147,6 @@ trait NewScanners {
         sepRegions = sepRegions.tail
         EMPTY
       case ARROW =>
-        assert(true)
         EMPTY
       case code @ (RPAREN|RBRACKET) =>  
         if (!sepRegions.isEmpty && sepRegions.head == code)
@@ -171,7 +170,6 @@ trait NewScanners {
         fillNext
         (current.code,next.code) match {
         case (CASE,OBJECT) => 
-          assert(true)
           current.code = CASEOBJECT; next.code = EMPTY
         case (CASE, CLASS) => current.code = CASECLASS ; next.code = EMPTY
         case (SEMI, ELSE ) => currentIsNext
@@ -185,7 +183,7 @@ trait NewScanners {
         assert(xmlOk)
         val headIsRBRACE = if (sepRegions.isEmpty) true else sepRegions.head == RBRACE
         val hasNewline = fillNext
-        if (headIsRBRACE && ((inLastOfStat(lastCode) && inFirstOfStat(next.code))
+        if (headIsRBRACE && (inLastOfStat(lastCode) && inFirstOfStat(next.code)
            /* This need to be commented out, otherwise line 
               continuation in the interpreter will not work 
 	      XXX: not sure how the IDE reacts with this commented out.
@@ -197,25 +195,32 @@ trait NewScanners {
       case _ => 
       }
     }
+
     def token = {
       assert(current.code != EMPTY)
       current.code
     }
+
     def nextTokenCode = {
       if (next.code == EMPTY) fillNext
       next.code
     }
+
     def name = current.value.get.asInstanceOf[Name]
+
     def charVal = current.value.get.asInstanceOf[Char]
+
     def intVal(negated : Boolean) : Long = {
       val base = current.value.asInstanceOf[Option[Int]].getOrElse(10)
       intVal(current.offset, current.code, current.nLit(this), negated, base)
     }
     def intVal : Long = intVal(false)
+
     def floatVal(negated: Boolean): Double = {
       floatVal(current.offset, current.code, current.nLit(this), negated)
     }
     def floatVal : Double = floatVal(false)
+
     def stringVal = current.value.get.asInstanceOf[String]
   }
   
@@ -237,6 +242,7 @@ trait NewScanners {
       this.offset = offset; this.length = length; this.code = code; this.value = Some(value)
     }
     def nLit(implicit in : BaseScanner) = (in.in.textFor(in.unadjust(offset), in.unadjust(offset + length)))
+      
   }
 
   trait BaseScanner {
@@ -323,6 +329,7 @@ trait NewScanners {
       case ']' => (RBRACKET)
       case SU => EOF
       case '\u21D2' => (ARROW)
+      case '\u2190' => (LARROW)
       case '<' => 
         if (oldXmlOk && (in.head match {
         case ('!' | '?') => true
@@ -455,6 +462,7 @@ trait NewScanners {
         }
       case '`' => 
         in.scratch setLength 0
+        if (in.head == '`') in.error(offset, "empty quoted identifier")
         while (in.head match {
         case '`' => in.next; false
         case CR | LF | FF | SU | EOF => 
@@ -832,56 +840,58 @@ trait NewScanners {
     }
 //Token representation -----------------------------------------------------
 
-  /** Convert name to token */
-  def name2token(name: global.Name): Int =
-    if (name.start <= maxKey) key(name.start) else IDENTIFIER
-  
-  def isKeyword(code : Int) = code match {
-  case code if code >= IF && code <= REQUIRES => true
-  case _ => false
-  }
-  /** Returns the string representation of given token. */
-  def token2string(token: Int): String = token match {
-    case IDENTIFIER | BACKQUOTED_IDENT => "identifier"
-    case CHARLIT => "character literal"
-    case INTLIT => "integer literal"
-    case LONGLIT => "long literal"
-    case FLOATLIT => "float literal"
-    case DOUBLELIT => "double literal"
-    case STRINGLIT => "string literal"
-    case SYMBOLLIT => "symbol literal"
-    case LPAREN => "'('"
-    case RPAREN => "')'"
-    case LBRACE => "'{'"
-    case RBRACE => "'}'"
-    case LBRACKET => "'['"
-    case RBRACKET => "']'"
-    case EOF => "eof"
-    case ERROR => "something"
-    case SEMI => "';'"
-    case NEWLINE => "';'"
-    case NEWLINES => "';'"
-    case COMMA => "','"
-    case CASECLASS =>
-      "case class"
-    case CASEOBJECT =>
-      "case object"
-    case XMLSTART => 
-      "$XMLSTART$<"
-    case COMMENT => "cmnt"
-    case WHITESPACE => "ws"
-    case IGNORE => "ig"
-    case _ =>
-      try {
-        "'" + tokenName(token) + "'"
-      } catch {
-        case _: ArrayIndexOutOfBoundsException =>
-          "'<" + token + ">'"
-        case _: NullPointerException =>
-          "'<(" + token + ")>'"
-      }
+    /** Convert name to token */
+    def name2token(name: global.Name): Int =
+      if (name.start <= maxKey) key(name.start) else IDENTIFIER
+    
+    def isKeyword(code : Int) = code match {
+      case code if code >= IF && code <= REQUIRES => true
+      case _ => false
     }
-  } 
+
+    /** Returns the string representation of given token. */
+    def token2string(token: Int): String = token match {
+      case IDENTIFIER | BACKQUOTED_IDENT => "identifier"
+      case CHARLIT => "character literal"
+      case INTLIT => "integer literal"
+      case LONGLIT => "long literal"
+      case FLOATLIT => "float literal"
+      case DOUBLELIT => "double literal"
+      case STRINGLIT => "string literal"
+      case SYMBOLLIT => "symbol literal"
+      case LPAREN => "'('"
+      case RPAREN => "')'"
+      case LBRACE => "'{'"
+      case RBRACE => "'}'"
+      case LBRACKET => "'['"
+      case RBRACKET => "']'"
+      case EOF => "eof"
+      case ERROR => "something"
+      case SEMI => "';'"
+      case NEWLINE => "';'"
+      case NEWLINES => "';'"
+      case COMMA => "','"
+      case CASECLASS =>
+        "case class"
+      case CASEOBJECT =>
+        "case object"
+      case XMLSTART => 
+        "$XMLSTART$<"
+      case COMMENT => "cmnt"
+      case WHITESPACE => "ws"
+      case IGNORE => "ig"
+      case _ =>
+        try {
+          "'" + tokenName(token) + "'"
+        } catch {
+          case _: ArrayIndexOutOfBoundsException =>
+            "'<" + token + ">'"
+          case _: NullPointerException =>
+            "'<(" + token + ")>'"
+        }
+    }
+  }
+ 
   class UnitScanner(unit: CompilationUnit) extends ParserScanner {
     implicit val in = 
       new DefaultInput(new NewCharArrayReader(unit.source.content, !settings.nouescape.value, error)) {

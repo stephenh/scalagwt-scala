@@ -8,13 +8,14 @@
 object partialsums
 {
   val twodiv3 = 2.0 / 3.0
-  var n: double = _
+  var n: Double = _
 
-  def calculate(s1:double, s2:double, s3:double, s4:double, s5:double, s6:double,
-		s7:double, s8:double, s9:double, sign: double, kd: double): unit = {
+  def calculate(s1: Double, s2: Double, s3: Double, s4: Double,
+                s5: Double, s6: Double, s7: Double, s8: Double,
+                s9: Double, sign: Double, kd: Double) {
 
     if (kd > n) {
-      val f = "{0,number,0.000000000}\t"
+      val f = "%.9f\t"
 
       Console.printf( f + "(2/3)^k\n", s1)
       Console.printf( f + "k^-0.5\n", s2)
@@ -38,7 +39,7 @@ object partialsums
     }
   }
 
-  def main(args: Array[String]) = {
+  def main(args: Array[String]) {
     n = Integer.parseInt(args(0)).toDouble
     calculate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
   }

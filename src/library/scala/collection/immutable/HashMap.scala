@@ -28,7 +28,11 @@ object HashMap {
   def apply[A, B](elems: (A, B)*) = empty[A, B] ++ elems
 }
 
-/** This class implements immutable maps using a hash table.
+/** This class implements immutable maps/sets using a hash table.
+  * It is optimized for sequential accesses where the last updated table is accessed most often.
+  * It supports with reasonable efficiency accesses to previous versions of the table by keeping
+  * a change log that's regularly compacted.
+  * It needs to synchronize most methods, so it is less suitable for highly concurrent accesses.
   *
   *  @author  Martin Odersky
   *  @version 2.0, 19/01/2007
@@ -85,12 +89,13 @@ class HashMap[A, B] extends Map[A,B] with mutable.HashTable[A] {
   override def size: Int = synchronized {
     var m = this
     var cnt = 0
-    var s = tableSize
+    var s = 0
     while (m.later != null) {
-      s = s - m.deltaSize
+      s -= m.deltaSize
       cnt += 1
       m = m.later
     }
+    s += m.tableSize
     if (cnt > logLimit) makeCopy(m)  
     s
   }
@@ -138,10 +143,10 @@ class HashMap[A, B] extends Map[A,B] with mutable.HashTable[A] {
       }
     val ltable = last.table
     val s = ltable.length
-    table = new Array[Entry](s)
+    table = new Array[mutable.HashEntry[A, Entry]](s)
     var i = 0
     while (i < s) {
-      table(i) = copy(ltable(i))
+      table(i) = copy(ltable(i).asInstanceOf[Entry])
       i += 1
     }
     tableSize = last.tableSize

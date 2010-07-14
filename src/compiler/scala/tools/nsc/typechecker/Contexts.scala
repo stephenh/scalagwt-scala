@@ -13,7 +13,7 @@ import scala.collection.mutable.ListBuffer
 /** This trait ...
  *
  *  @author  Martin Odersky
- *  @version 1.0
+ *  @version 1.0 
  */
 trait Contexts { self: Analyzer =>
   import global._
@@ -42,10 +42,12 @@ trait Contexts { self: Analyzer =>
     if (!settings.noimports.value) {
       assert(isDefinitionsInitialized)
       imps += JavaLangPackage
-      assert(ScalaPackage ne null, "Scala package is null")
-      imps += ScalaPackage
-      if (!(treeInfo.isPredefUnit(unit.body) || treeInfo.containsLeadingPredefImport(List(unit.body))))
-        imps += PredefModule
+      if (!unit.isJava) {
+        assert(ScalaPackage ne null, "Scala package is null")
+        imps += ScalaPackage
+        if (!(treeInfo.isPredefUnit(unit.body) || treeInfo.containsLeadingPredefImport(List(unit.body))))
+          imps += PredefModule
+      }
     }
     imps.toList
   }
@@ -97,8 +99,9 @@ trait Contexts { self: Analyzer =>
     private var _undetparams: List[Symbol] = List() // Undetermined type parameters,
                                                     // not inherited to child contexts
     var depth: Int = 0
-    var imports: List[ImportInfo] = List()
-
+    var imports: List[ImportInfo] = List()   // currently visible imports
+    var openImplicits: List[Type] = List()   // types for which implicit arguments
+                                             // are currently searched
     var prefix: Type = NoPrefix
     var inConstructorSuffix = false         // are we in a secondary constructor
                                             // after the this constructor call?
@@ -109,7 +112,8 @@ trait Contexts { self: Analyzer =>
     var checking = false
     var retyping = false
 
-    var savedTypeBounds: List[(Symbol, Type)] = List()
+    var savedTypeBounds: List[(Symbol, Type)] = List() // saved type bounds
+       // for type parameters which are narrowed in a GADT
 
     def intern0 : Context = {
       if (this eq NoContext) return this
@@ -120,16 +124,17 @@ trait Contexts { self: Analyzer =>
       txt.scope = scope
       assert(outer ne this) // stupid
       txt.outer = outer // already interned
-      def f(what : Context) = 
+      def fix(what : Context) = 
         if (what eq this) txt
         else what
-      txt.enclClass = f(enclClass)
-      txt.enclMethod = f(enclMethod)
+      txt.enclClass = fix(enclClass)
+      txt.enclMethod = fix(enclMethod)
       txt.implicitsEnabled = implicitsEnabled
       txt.variance = variance
       txt._undetparams = _undetparams
       txt.depth = depth
       txt.imports = imports
+      txt.openImplicits = openImplicits
       txt.prefix = prefix
       txt.inConstructorSuffix = inConstructorSuffix
       txt.returnsSeen = returnsSeen
@@ -158,26 +163,27 @@ trait Contexts { self: Analyzer =>
         } 
         val a1 = eq(owner, that.owner)
         val a2 = eq(scope, that.scope)
-        def f(txt0 : Context, txt1 : Context) = 
+        def fix(txt0 : Context, txt1 : Context) = 
           ((this eq txt0) && (that eq txt1)) || (txt0 eq txt1)
         
-        val a3 = f(outer, that.outer)
-        val a4 = f(enclClass, that.enclClass)
-        val a5 = f(enclMethod, that.enclMethod)
+        val a3 = fix(outer, that.outer)
+        val a4 = fix(enclClass, that.enclClass)
+        val a5 = fix(enclMethod, that.enclMethod)
         val a6 = eq(variance, that.variance)
         val a7 = eq(_undetparams, that._undetparams)
         val a8 = eq(depth, that.depth)
         val a9 = eq(imports, that.imports)
-        
-        val a10 = eq(prefix, that.prefix)
-        val a11 = eq(inConstructorSuffix, that.inConstructorSuffix)
-        val a12 = eq(implicitsEnabled, that.implicitsEnabled)
-        val a13 = eq(checking, that.checking)
-        val a14 = eq(retyping, that.retyping)
-        val a15 = eq(savedTypeBounds, that.savedTypeBounds)
-        val a16 = eq(unit, that.unit)
-        val ret = a0 && a1 && a2 && a3 && a4 && a5 && a6 && a7 && a8 && a9 && a10 && a11 && a12 && a13 && a14 && a15 && a16
-        val a17 = {
+
+        val a10 = eq(openImplicits, that.openImplicits)
+        val a11 = eq(prefix, that.prefix)
+        val a12 = eq(inConstructorSuffix, that.inConstructorSuffix)
+        val a13 = eq(implicitsEnabled, that.implicitsEnabled)
+        val a14 = eq(checking, that.checking)
+        val a15 = eq(retyping, that.retyping)
+        val a16 = eq(savedTypeBounds, that.savedTypeBounds)
+        val a17 = eq(unit, that.unit)
+        val ret = a0 && a1 && a2 && a3 && a4 && a5 && a6 && a7 && a8 && a9 && a10 && a11 && a12 && a13 && a14 && a15 && a16 && a17
+        val a18 = {
           if (implicitsRunId > that.implicitsRunId) {
             that.implicitsRunId = NoRunId
             that.implicitsCache = null
@@ -189,7 +195,7 @@ trait Contexts { self: Analyzer =>
           implicitsCache == that.implicitsCache
         }
         if (ret) {
-          if (!a17) {
+          if (!a18) {
             //assert(this.implicitsCache == null || that.implicitsCache == null)
           }
         }
@@ -252,6 +258,7 @@ trait Contexts { self: Analyzer =>
       c.implicitsEnabled = this.implicitsEnabled
       c.checking = this.checking
       c.retyping = this.retyping
+      c.openImplicits = this.openImplicits
       c
     }
 
@@ -332,14 +339,14 @@ trait Contexts { self: Analyzer =>
 
     def error(pos: Position, err: Error) {
       val msg = err.getMessage()
-      if (reportGeneralErrors)
+      if (reportGeneralErrors || inIDE)
         unit.error(pos, if (checking) "**** ERROR DURING INTERNAL CHECKING ****\n" + msg else msg)
       else
         throw err
     }
 
     def error(pos: Position, msg: String) {
-      if (reportGeneralErrors)
+      if (reportGeneralErrors || inIDE)
         unit.error(pos, if (checking) "**** ERROR DURING INTERNAL CHECKING ****\n" + msg else msg)
       else
         throw new TypeError(pos, msg)
@@ -457,7 +464,7 @@ trait Contexts { self: Analyzer =>
          (superAccess ||
           (pre.widen.typeSymbol.isNonBottomSubClass(sym.owner) && 
            (isSubClassOfEnclosing(pre.widen.typeSymbol) || phase.erasedTypes))))
-        // note: phase.erasedTypes disables last test, because fater addinterfaces
+        // note: phase.erasedTypes disables last test, because after addinterfaces
         // implementation classes are not in the superclass chain. If we enable the
         // test, bug780 fails.
       }
@@ -529,7 +536,11 @@ trait Contexts { self: Analyzer =>
             if (settings.debug.value)
               log("collect member implicits " + owner + ", implicit members = " +
                   owner.thisType.implicitMembers)//debug
-            collectImplicits(owner.thisType.implicitMembers, owner.thisType)
+            val savedEnclClass = enclClass
+            this.enclClass = this
+            val res = collectImplicits(owner.thisType.implicitMembers, owner.thisType)
+            this.enclClass = savedEnclClass
+            res
           } else if (scope != nextOuter.scope && !owner.isPackageClass) {
             if (settings.debug.value)
               log("collect local implicits " + scope.toList)//debug
@@ -631,6 +642,7 @@ trait Contexts { self: Analyzer =>
     case _ => false
     }
     override def hashCode = if (inIDE) expr.hashCodeStructure else expr.hashCode
+    override def safeToString = "ImportType("+expr+")"
   }
   protected def intern(txt : Context) = txt
   

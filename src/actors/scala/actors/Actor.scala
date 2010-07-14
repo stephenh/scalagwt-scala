@@ -19,7 +19,7 @@ import scala.compat.Platform
  * <code>receive</code>, <code>react</code>, <code>reply</code>,
  * etc.
  *
- * @version 0.9.10
+ * @version 0.9.18
  * @author Philipp Haller
  */
 object Actor {
@@ -70,8 +70,11 @@ object Actor {
   }
 
   /**
-   * <p>This function is used for the definition of actors.</p>
-   * <p>The following example demonstrates its usage:</p><pre>
+   * <p>This is a factory method for creating actors.</p>
+   *
+   * <p>The following example demonstrates its usage:</p>
+   *
+   * <pre>
    * import scala.actors.Actor._
    * ...
    * val a = actor {
@@ -88,6 +91,39 @@ object Actor {
     }
     actor.start()
     actor
+  }
+
+  /**
+   * <p>
+   * This is a factory method for creating actors whose
+   * body is defined using a <code>Responder</code>.
+   * </p>
+   *
+   * <p>The following example demonstrates its usage:</p>
+   *
+   * <pre>
+   * import scala.actors.Actor._
+   * import Responder.exec
+   * ...
+   * val a = reactor {
+   *   for {
+   *     res <- b !! MyRequest;
+   *     if exec(println("result: "+res))
+   *   } yield {}
+   * }
+   * </pre>
+   *
+   * @param  body  the <code>Responder</code> to be executed by the newly created actor
+   * @return       the newly created actor. Note that it is automatically started.
+   */
+  def reactor(body: => Responder[Unit]): Actor = {
+    val a = new Actor {
+      def act() {
+        Responder.run(body)
+      }
+    }
+    a.start()
+    a
   }
 
   /**
@@ -179,6 +215,35 @@ object Actor {
    */
   def reply(): Unit = self.reply(())
 
+  /**
+   * Returns the number of messages in <code>self</code>'s mailbox
+   *
+   * @return the number of messages in <code>self</code>'s mailbox
+   */
+  def mailboxSize: Int = self.mailboxSize
+
+  /**
+   * <p>
+   * Converts a synchronous event-based operation into
+   * an asynchronous <code>Responder</code>.
+   * </p>
+   *
+   * <p>The following example demonstrates its usage:</p>
+   * 
+   * <pre>
+   * val adder = reactor {
+   *   for {
+   *     _ <- respondOn(react) { case Add(a, b) => reply(a+b) }
+   *   } yield {}
+   * }
+   * </pre>
+   */
+  def respondOn[A, B](fun: PartialFunction[A, Unit] => Nothing):
+    PartialFunction[A, B] => Responder[B] =
+      (caseBlock: PartialFunction[A, B]) => new Responder[B] {
+        def respond(k: B => Unit) = fun(caseBlock andThen k)
+      }
+
   private[actors] trait Body[a] {
     def andThen[b](other: => b): Unit
   }
@@ -213,7 +278,7 @@ object Actor {
    * @param  to the actor to link to
    * @return 
    */
-  def link(to: Actor): Actor = self.link(to)
+  def link(to: AbstractActor): AbstractActor = self.link(to)
 
   /**
    * Links <code>self</code> to actor defined by <code>body</code>.
@@ -285,11 +350,11 @@ object Actor {
  *   </li>
  * </ul>
  *
- * @version 0.9.10
+ * @version 0.9.18
  * @author Philipp Haller
  */
 @serializable
-trait Actor extends OutputChannel[Any] {
+trait Actor extends AbstractActor {
 
   private var received: Option[Any] = None
 
@@ -297,9 +362,20 @@ trait Actor extends OutputChannel[Any] {
   private var waitingFor: Any => Boolean = waitingForNone
   private var isSuspended = false
 
-  private val mailbox = new MessageQueue
+  protected val mailbox = new MessageQueue
   private var sessions: List[OutputChannel[Any]] = Nil
-  private var session1: Option[OutputChannel[Any]] = None
+
+  protected def scheduler: IScheduler =
+    Scheduler
+
+  /**
+   * Returns the number of messages in this actor's mailbox
+   *
+   * @return the number of messages in this actor's mailbox
+   */
+  def mailboxSize: Int = synchronized {
+    mailbox.size
+  }
 
   /**
    * Sends <code>msg</code> to this actor (asynchronous) supplying
@@ -316,7 +392,7 @@ trait Actor extends OutputChannel[Any] {
       if (isSuspended)
         sessions = replyTo :: sessions
       else
-        session1 = Some(replyTo)
+        sessions = List(replyTo)
 
       waitingFor = waitingForNone
 
@@ -328,7 +404,7 @@ trait Actor extends OutputChannel[Any] {
       if (isSuspended)
         resumeActor()
       else // assert continuation != null
-        Scheduler.execute(new Reaction(this, continuation, msg))
+        scheduler.execute(new Reaction(this, continuation, msg))
     } else {
       mailbox.append(msg, replyTo)
     }
@@ -433,7 +509,7 @@ trait Actor extends OutputChannel[Any] {
         continuation = f
         isDetached = true
       } else {
-        session1 = Some(qel.session)
+        sessions = List(qel.session)
         scheduleActor(f, qel.msg)
       }
       throw new SuspendActorException
@@ -460,13 +536,23 @@ trait Actor extends OutputChannel[Any] {
 
       val qel = mailbox.extractFirst((m: Any) => f.isDefinedAt(m))
       if (null eq qel) {
-        waitingFor = f.isDefinedAt
-        TimerThread.requestTimeout(this, f, msec)
-        timeoutPending = true
-        continuation = f
-        isDetached = true
+        if (msec == 0) {
+          if (f.isDefinedAt(TIMEOUT)) {
+            sessions = List(Actor.self)
+            scheduleActor(f, TIMEOUT)
+          }
+          else
+            error("unhandled timeout")
+        }
+        else {
+          waitingFor = f.isDefinedAt
+          TimerThread.requestTimeout(this, f, msec)
+          timeoutPending = true
+          continuation = f
+          isDetached = true
+        }
       } else {
-        session1 = Some(qel.session)
+        sessions = List(qel.session)
         scheduleActor(f, qel.msg)
       }
       throw new SuspendActorException
@@ -541,6 +627,11 @@ trait Actor extends OutputChannel[Any] {
         else ch.receive {
           case any => value = Some(any); any
         }
+      def respond(k: Any => Unit): Unit =
+ 	if (isSet) k(value.get)
+ 	else ch.react {
+ 	  case any => value = Some(any); k(any)
+ 	}
       def isSet = value match {
         case None => ch.receiveWithin(0) {
           case TIMEOUT => false
@@ -563,10 +654,15 @@ trait Actor extends OutputChannel[Any] {
     send(msg, ftch)
     new Future[A](ftch) {
       def apply() =
-        if (isSet) value.get
+        if (isSet) value.get.asInstanceOf[A]
         else ch.receive {
-          case any => value = Some(f(any)); value.get
+          case any => value = Some(f(any)); value.get.asInstanceOf[A]
         }
+      def respond(k: A => Unit): Unit =
+ 	if (isSet) k(value.get.asInstanceOf[A])
+ 	else ch.react {
+ 	  case any => value = Some(f(any)); k(value.get.asInstanceOf[A])
+ 	}
       def isSet = value match {
         case None => ch.receiveWithin(0) {
           case TIMEOUT => false
@@ -596,13 +692,7 @@ trait Actor extends OutputChannel[Any] {
     case x => x
   }
 
-  def sender: OutputChannel[Any] =
-    if (sessions.isEmpty) {
-      session1 match {
-        case None => null
-        case Some(s) => s
-      }
-    } else sessions.head
+  def sender: OutputChannel[Any] = sessions.head
 
   def receiver: Actor = this
 
@@ -621,11 +711,11 @@ trait Actor extends OutputChannel[Any] {
       val task = new Reaction(this,
                               if (f eq null) continuation else f,
                               msg)
-      Scheduler execute task
+      scheduler execute task
     }
 
   private def tick(): Unit =
-    Scheduler tick this
+    scheduler tick this
 
   private[actors] var kill: () => Unit = () => {}
 
@@ -685,7 +775,11 @@ trait Actor extends OutputChannel[Any] {
     exiting = false
     shouldExit = false
 
-    Scheduler start new Reaction(this)
+    scheduler execute {
+      ActorGC.newActor(Actor.this)
+      (new Reaction(Actor.this)).run()
+    }
+
     this
   }
 
@@ -705,7 +799,7 @@ trait Actor extends OutputChannel[Any] {
     throw new KillActorException
   }
 
-  private[actors] var links: List[Actor] = Nil
+  private[actors] var links: List[AbstractActor] = Nil
 
   /**
    * Links <code>self</code> to actor <code>to</code>.
@@ -713,7 +807,7 @@ trait Actor extends OutputChannel[Any] {
    * @param to ...
    * @return   ...
    */
-  def link(to: Actor): Actor = {
+  def link(to: AbstractActor): AbstractActor = {
     assert(Actor.self == this, "link called on actor different from self")
     links = to :: links
     to.linkTo(this)
@@ -732,26 +826,25 @@ trait Actor extends OutputChannel[Any] {
     actor
   }
 
-  private[actors] def linkTo(to: Actor) = synchronized {
+  private[actors] def linkTo(to: AbstractActor) = synchronized {
     links = to :: links
   }
 
   /**
    * Unlinks <code>self</code> from actor <code>from</code>.
    */
-  def unlink(from: Actor) {
+  def unlink(from: AbstractActor) {
     assert(Actor.self == this, "unlink called on actor different from self")
     links = links.remove(from.==)
     from.unlinkFrom(this)
   }
 
-  private[actors] def unlinkFrom(from: Actor) = synchronized {
+  private[actors] def unlinkFrom(from: AbstractActor) = synchronized {
     links = links.remove(from.==)
   }
 
   var trapExit = false
   private[actors] var exitReason: AnyRef = 'normal
-  private[actors] var exiting = false
   private[actors] var shouldExit = false
 
   /**
@@ -792,7 +885,7 @@ trait Actor extends OutputChannel[Any] {
     // remove this from links
     links = links.remove(this.==)
     // exit linked processes
-    links.foreach((linked: Actor) => {
+    links.foreach((linked: AbstractActor) => {
       unlink(linked)
       if (!linked.exiting)
         linked.exit(this, exitReason)
@@ -806,7 +899,7 @@ trait Actor extends OutputChannel[Any] {
   }
 
   // Assume !this.exiting
-  private[actors] def exit(from: Actor, reason: AnyRef) {
+  private[actors] def exit(from: AbstractActor, reason: AnyRef) {
     if (trapExit) {
       this ! Exit(from, reason)
     }
@@ -845,7 +938,7 @@ trait Actor extends OutputChannel[Any] {
 case object TIMEOUT
 
 
-case class Exit(from: Actor, reason: AnyRef)
+case class Exit(from: AbstractActor, reason: AnyRef)
 
 /** <p>
  *    This class is used to manage control flow of actor

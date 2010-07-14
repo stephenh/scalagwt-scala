@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2002-2007, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2008, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -33,29 +33,32 @@ object Array {
    *  @param destPos ...
    *  @param length  ...
    */
-  def copy(src: AnyRef, srcPos: Int, dest: AnyRef, destPos: Int, length: Int): Unit = src match {
-    case xs: runtime.BoxedArray =>
-      xs.copyTo(srcPos, dest, destPos, length)
-    case _ =>
-      dest match {
-        case xs: runtime.BoxedArray =>
-          xs.copyFrom(src, srcPos, destPos, length)
-        case _ =>
-          arraycopy(src, srcPos, dest, destPos, length)
-      }
+  def copy(src: AnyRef, srcPos: Int, dest: AnyRef, destPos: Int, length: Int) {
+    src match {
+      case xs: runtime.BoxedArray =>
+        xs.copyTo(srcPos, dest, destPos, length)
+      case _ =>
+        dest match {
+          case xs: runtime.BoxedArray =>
+            xs.copyFrom(src, srcPos, destPos, length)
+          case _ =>
+            arraycopy(src, srcPos, dest, destPos, length)
+        }
+    }
   }
 
-  /** Concatenate all argument arrays into a single array.
+  /** Concatenate all argument sequences into a single array.
    *
-   *  @param xs ...
+   *  @param xs the given argument sequences
+   *  @return   the array created from the concatenated arguments
    */
-  def concat[T](xs: Seq[T]*) = {
+  def concat[T](xs: Seq[T]*): Array[T] = {
     var len = 0
     for (x <- xs) len += x.length
     val result = new Array[T](len)
     var start = 0
     for (x <- xs) {
-      copy(x, 0, result, start, x.length)
+      copy(x.toArray, 0, result, start, x.length)
       start += x.length
     }
     result
@@ -108,48 +111,56 @@ object Array {
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Byte*): Array[Byte] = {
     val array = new Array[Byte](xs.length)
     var i = 0
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Short*): Array[Short] = {
     val array = new Array[Short](xs.length)
     var i = 0
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Char*): Array[Char] = {
     val array = new Array[Char](xs.length)
     var i = 0
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Int*): Array[Int] = {
     val array = new Array[Int](xs.length)
     var i = 0
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Long*): Array[Long] = {
     val array = new Array[Long](xs.length)
     var i = 0
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Float*): Array[Float] = {
     val array = new Array[Float](xs.length)
     var i = 0
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Double*): Array[Double] = {
     val array = new Array[Double](xs.length)
     var i = 0
     for (x <- xs.elements) { array(i) = x; i += 1 }
     array
   }
+
   def apply(xs: Unit*): Array[Unit] = {
     val array = new Array[Unit](xs.length)
     var i = 0
@@ -173,6 +184,43 @@ object Array {
     a
   }
 
+  /** Create an array containing the values of a given function <code>f</code> 
+   *  over given range <code>[0..n)</code>
+   */
+  def fromFunction[A](f: Int => A)(n: Int): Array[A] = {
+    val a = new Array[A](n)
+    var i = 0
+    while (i < n) {
+      a(i) = f(i)
+      i += 1
+    }
+    a
+  }
+  
+  /** Create an array containing the values of a given function <code>f</code> 
+   *  over given range <code>[0..n1, 0..n2)</code>
+   */
+  def fromFunction[A](f: (Int, Int) => A)(n1: Int, n2: Int): Array[Array[A]] =
+    fromFunction(i => fromFunction(f(i, _))(n2))(n1)
+  
+  /** Create an array containing the values of a given function <code>f</code> 
+   *  over given range <code>[0..n1, 0..n2, 0..n3)</code>
+   */
+  def fromFunction[A](f: (Int, Int, Int) => A)(n1: Int, n2: Int, n3: Int): Array[Array[Array[A]]] = 
+    fromFunction(i => fromFunction(f(i, _, _))(n2, n3))(n1)
+
+  /** Create an array containing the values of a given function <code>f</code> 
+   *  over given range <code>[0..n1, 0..n2, 0..n3, 0..n4)</code>
+   */
+  def fromFunction[A](f: (Int, Int, Int, Int) => A)(n1: Int, n2: Int, n3: Int, n4: Int): Array[Array[Array[Array[A]]]] = 
+    fromFunction(i => fromFunction(f(i, _, _, _))(n2, n3, n4))(n1)
+
+  /** Create an array containing the values of a given function <code>f</code> 
+   *  over given range <code>[0..n1, 0..n2, 0..n3, 0..n4, 0..n5)</code>
+   */
+  def fromFunction[A](f: (Int, Int, Int, Int, Int) => A)(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int): Array[Array[Array[Array[Array[A]]]]] = 
+    fromFunction(i => fromFunction(f(i, _, _, _, _))(n2, n3, n4, n5))(n1)
+
  /** This method is called as a result of a pattern match { case Array(...) => } or val Array(...) = ....
    *
    *  @param x the selector value
@@ -183,6 +231,7 @@ object Array {
    trait ArrayLike[A] extends RandomAccessSeq.Mutable[A] {
      def force : Array[A]
    }
+
    trait Projection[A] extends RandomAccessSeq.MutableProjection[A] with ArrayLike[A] {
      protected def newArray[B >: A](length : Int, elements : Iterator[A]) : Array[B]
      override def toArray[B >: A] = (newArray(length, elements))//:Any).asInstanceOf[Array[B]]
@@ -197,13 +246,13 @@ object Array {
        val c = length + 1
        take((findIndexOf(!p(_)) + c) % c)
      }
-     override def slice(from0 : Int, until0 : Int) : Projection[A] = new RandomAccessSeq.MutableSlice[A] with Projection[A] {
+     override def slice(from0: Int, until0: Int): Projection[A] = new RandomAccessSeq.MutableSlice[A] with Projection[A] {
        override def from = from0
        override def until = until0
        override def underlying = Projection.this
-       override protected def newArray[B >: A](length : Int, elements : Iterator[A]) =
+       override protected def newArray[B >: A](length: Int, elements: Iterator[A]) =
          underlying.newArray(length, elements)
-       override def slice(from0 : Int, until0 : Int) =
+       override def slice(from0: Int, until0: Int) =
          Projection.this.slice(from + from0, from + until0)
      }
      
@@ -239,19 +288,19 @@ final class Array[A](_length: Int) extends Array.Array0[A] {
 
    /** Multidimensional array creation */
    def this(dim1: Int, dim2: Int) = {
-     this(dim1);
+     this(dim1)
      throw new Error()
    }
 
    /** Multidimensional array creation */
    def this(dim1: Int, dim2: Int, dim3: Int) = {
-     this(dim1);
+     this(dim1)
      throw new Error()
    }
 
    /** Multidimensional array creation */
    def this(dim1: Int, dim2: Int, dim3: Int, dim4: Int) = {
-     this(dim1);
+     this(dim1)
      throw new Error()
    }
 
@@ -263,25 +312,25 @@ final class Array[A](_length: Int) extends Array.Array0[A] {
 
    /** Multidimensional array creation */
    def this(dim1: Int, dim2: Int, dim3: Int, dim4: Int, dim5: Int, dim6: Int) = {
-     this(dim1);
+     this(dim1)
      throw new Error()
    }
 
    /** Multidimensional array creation */
    def this(dim1: Int, dim2: Int, dim3: Int, dim4: Int, dim5: Int, dim6: Int, dim7: Int) = {
-     this(dim1);
+     this(dim1)
      throw new Error()
    }
 
    /** Multidimensional array creation */
    def this(dim1: Int, dim2: Int, dim3: Int, dim4: Int, dim5: Int, dim6: Int, dim7: Int, dim8: Int) = {
-     this(dim1);
+     this(dim1)
      throw new Error()
    }
 
    /** Multidimensional array creation */
    def this(dim1: Int, dim2: Int, dim3: Int, dim4: Int, dim5: Int, dim6: Int, dim7: Int, dim8: Int, dim9: Int) = {
-     this(dim1);
+     this(dim1)
      throw new Error()
    }
 
@@ -321,7 +370,7 @@ final class Array[A](_length: Int) extends Array.Array0[A] {
    *  @throws ArrayIndexOutOfBoundsException if <code>i < 0</code> or
    *          <code>length <= i</code>
    */
-  override def update(i: Int, x: A): Unit = throw new Error()
+  override def update(i: Int, x: A) { throw new Error() }
 
   /** An iterator returning the elements of this array, starting from 0.
    */
@@ -370,7 +419,7 @@ final class Array[A](_length: Int) extends Array.Array0[A] {
    *              <code>Array(a<sub>0</sub>, ..., a<sub>m</sub>)
    *              zip Array(b<sub>0</sub>, ..., b<sub>n</sub>)</code> is invoked.
    */
-  def zip[B](that: Array[B]): Array[Tuple2[A,B]] = throw new Error()
+  def zip[B](that: Array[B]): Array[(A, B)] = throw new Error()
 
   /** Returns an array that pairs each element of this array
    *  with its index, counting from 0.
@@ -378,7 +427,7 @@ final class Array[A](_length: Int) extends Array.Array0[A] {
    *  @return      the array <code>Array({a<sub>0</sub>,0}, {a<sub>1</sub>,1},...)</code>
    *               where <code>a<sub>i</sub></code> are the elements of this stream.
    */
-  def zipWithIndex: Array[Tuple2[A,Int]] = throw new Error()
+  def zipWithIndex: Array[(A, Int)] = throw new Error()
 
   /** Returns an array that contains all indices of this array */
   def indices: Array[Int] = throw new Error()

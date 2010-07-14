@@ -6,7 +6,7 @@
 **                          |/                                          **
 \*                                                                      */
 
-// $Id: Parsers.scala 12357 2007-07-18 21:55:08Z moors $
+// $Id$
 
 package scala.util.parsing.combinator
 
@@ -230,10 +230,28 @@ trait Parsers {
      */
     def ~ [U](p: => Parser[U]): Parser[~[T, U]] = (for(a <- this; b <- p) yield new ~(a,b)).named("~")
 
+    /** A parser combinator for sequential composition which keeps only the right result 
+     *
+     * <p> `p ~> q' succeeds if `p' succeeds and `q' succeeds on the input
+     *           left over by `p'.</p>
+     * 
+     * @param q a parser that will be executed after `p' (this parser) succeeds
+     * @return a `Parser' that -- on success -- returns the result of `q'.
+     */
     def ~> [U](p: => Parser[U]): Parser[U] = (for(a <- this; b <- p) yield b).named("~>")
+
+    /** A parser combinator for sequential composition which keeps only the left result 
+     *
+     * <p> `p &lt;~ q' succeeds if `p' succeeds and `q' succeeds on the input
+     *           left over by `p'.</p>
+     * 
+     * <b>Note:</b> &lt;~ has lower operator precedence than ~ or ~>.
+     *
+     * @param q a parser that will be executed after `p' (this parser) succeeds
+     * @return a `Parser' that -- on success -- returns the result of `p'.
+     */
     def <~ [U](p: => Parser[U]): Parser[T] = (for(a <- this; b <- p) yield a).named("<~")
 
-   
      /* not really useful: V cannot be inferred because Parser is covariant in first type parameter (V is always trivially Nothing)
     def ~~ [U, V](q: => Parser[U])(implicit combine: (T, U) => V): Parser[V] = new Parser[V] {
       def apply(in: Input) = seq(Parser.this, q)((x, y) => combine(x,y))(in)
@@ -578,13 +596,17 @@ trait Parsers {
 
     // assert(res.isInstanceOf[NoSuccess])
 
-    if (!xs.isEmpty) {
-      // the next parser should start parsing where p failed, 
-      // since `!p(in).successful', the next input to be consumed is `in'
-      Success(xs.toList, in)  // TODO: I don't think in == res.next holds
-    }
-    else {
-      Failure(res.asInstanceOf[NoSuccess].msg, in0)
+    res match {
+      case e: Error => e
+      case _  => 
+        if (!xs.isEmpty) {
+          // the next parser should start parsing where p failed, 
+          // since `!p(in).successful', the next input to be consumed is `in'
+          Success(xs.toList, in)  // TODO: I don't think in == res.next holds
+        }
+        else {
+          Failure(res.asInstanceOf[NoSuccess].msg, in0)
+        }
     }
   }
   

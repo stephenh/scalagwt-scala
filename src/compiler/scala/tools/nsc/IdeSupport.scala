@@ -7,7 +7,6 @@ trait IdeSupport extends Global with symtab.IdeSupport {
   class IdeRun extends Run {
     override def compiles(sym : Symbol) : Boolean = false // throw new Error
     override def compileLate(file : AbstractFile) = {
-      // don't bother with any of the phase crap since adapt isn't supported
       reloadSource(file)
       normalCompile(super.compileLate(file))
     }
@@ -17,18 +16,27 @@ trait IdeSupport extends Global with symtab.IdeSupport {
   
   
   // load a source file without us caring about adapt.
-  def loadSource(file : AbstractFile) = {
+  def loadSource(file : AbstractFile) : Option[CompilationUnit] = {
     val run = new IdeRun
-    reloadSource(file)
+    reloadSource(file) 
     val source = getSourceFile(file)
-    normalCompile(run.compileSources(source :: Nil))
-    run.units.find(unit => unit.source == source)
+    try {
+      normalCompile(run.compileSources(source :: Nil))
+      run.units.find(unit => unit.source == source)
+    } catch {
+      case e => 
+        logError("error in presentation normal compile ", e)
+        None
+    }
   }
-  object loaders1 extends scala.tools.nsc.symtab.SymbolLoaders {
-    lazy val global : IdeSupport.this.type = IdeSupport.this
+  object loaders1 extends {
+    val global : IdeSupport.this.type = IdeSupport.this
+  } with scala.tools.nsc.symtab.SymbolLoaders {
     import global._
     protected override def completeClassfile(root : global.Symbol, loader : ClassfileLoader)(f : => Unit) : Unit = 
       global.normalCompile(f)
+    override def computeDepends(from : PackageLoader) : global.PackageScopeDependMap = IdeSupport.this.computeDepends(from.asInstanceOf[IdeSupport.this.loaders.PackageLoader])
   }
+  def computeDepends(from : loaders.PackageLoader) : PackageScopeDependMap = null
   override lazy val loaders = loaders1
 }

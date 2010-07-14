@@ -17,11 +17,7 @@ import collection.mutable.ArrayBuffer
 object Seq {
 
   /** The empty sequence */
-  val empty : Seq[Nothing] = new RandomAccessSeq[Nothing] {
-    def length = 0
-    def apply(i: Int): Nothing = throw new NoSuchElementException("empty sequence")
-    override def elements = Iterator.empty
-  }
+  val empty : Seq[Nothing] = RandomAccessSeq.empty
 
   /** This method is called in a pattern match { case Seq(...) => }.
    *
@@ -29,6 +25,9 @@ object Seq {
    *  @return  sequence wrapped in an option, if this is a Seq, otherwise none
    */
   def unapplySeq[A](x: Seq[A]): Some[Seq[A]] = Some(x)
+  
+  /** Create read only sequence of specified elements */
+  def apply[A](xs: A*): Seq[A] = RandomAccessSeq(xs: _*)
   
   case class singleton[A](value: A) extends RandomAccessSeq[A] {
     override def length = 1
@@ -140,7 +139,13 @@ trait Seq[+A] extends AnyRef with PartialFunction[Int, A] with Collection[A] {
    */
   def length: Int
 
-  /** Returns length - l. This method is used by matching streams against right-ignoring (...,_*) patterns.
+  /** Result of comparing <code>length</code> with operand <code>l</code>.
+   *  returns <code>x</code> where
+   *  <code>x &lt; 0</code>    iff    <code>this.length &lt; l</code>
+   *  <code>x == 0</code>   iff    <code>this.length == l</code>
+   *  <code>x &gt; 0</code>    iff    <code>this.length &gt; that</code>.
+   *
+   *  This method is used by matching streams against right-ignoring (...,_*) patterns.
    *  Lazy sequences should override this method if length forces evaluation of the stream. 
    */
   def lengthCompare(l: Int): Int = length - l
@@ -168,7 +173,7 @@ trait Seq[+A] extends AnyRef with PartialFunction[Int, A] with Collection[A] {
   /** Returns the last element of this list.
    *
    *  @return the last element of the list.
-   *  @throws Predef.UnsupportedOperationException if the list is empty.
+   *  @throws Predef.NoSuchElementException if the list is empty.
    */
   def last: A = length match {
     case 0 => throw new Predef.NoSuchElementException
@@ -237,7 +242,29 @@ trait Seq[+A] extends AnyRef with PartialFunction[Int, A] with Collection[A] {
     }
     if (found) i else -1
   }
-
+    
+  /** Returns index of the first element satisying a predicate, or -1.
+   *
+   *  @note may not terminate for infinite-sized collections.
+   *  @param  p the predicate
+   *  @return   the index of the first element satisfying <code>p</code>,
+   *            or -1 if such an element does not exist
+   */
+  override def findIndexOf(p: A => Boolean): Int =
+    elements.findIndexOf(p)
+  
+  /** Returns the index of the first occurence of the specified
+   *  object in this iterable object.
+   *
+   *  @note may not terminate for infinite-sized collections.
+   *  @param  elem  element to search for.
+   *  @return the index in this sequence of the first occurence of the
+   *          specified element, or -1 if the sequence does not contain
+   *          this element.
+   */
+  override def indexOf[B >: A](elem: B): Int =
+    elements.indexOf(elem)
+        
   /** Returns the sequence resulting from applying the given function
    *  <code>f</code> to each element of this sequence.
    *
@@ -313,8 +340,8 @@ trait Seq[+A] extends AnyRef with PartialFunction[Int, A] with Collection[A] {
     result.toList
   }
 
-   /** A sub-sequence of <code>len</code> elements 
-    *  starting at index <code>from</code> (non-strict)
+   /** A sub-sequence starting at index <code>from</code> 
+    *  and ending (non-inclusive) at index <code>until</code> (non-strict)
     *
     *  @param from   The index of the first element of the slice
     *  @param until    The index of the element following the slice
@@ -322,6 +349,15 @@ trait Seq[+A] extends AnyRef with PartialFunction[Int, A] with Collection[A] {
     *          or <code>length &lt; from + len<code>
     */
   def slice(from: Int, until: Int): Seq[A] = drop(from).take(until - from)
+
+   /** A sub-sequence starting at index <code>from</code> 
+    *  and extending up to the length of the current sequence (non-strict)
+    *
+    *  @param from   The index of the first element of the slice
+    *  @throws IndexOutOfBoundsException if <code>from &lt; 0</code>
+    *  @deprecated Use <code>drop(n: Int): Seq[A]</code> instead.
+    */
+ @deprecated def slice(from: Int): Seq[A] = slice(from, length)
 
   /** Returns the longest prefix of this sequence whose elements satisfy
    *  the predicate <code>p</code>.
@@ -374,6 +410,13 @@ trait Seq[+A] extends AnyRef with PartialFunction[Int, A] with Collection[A] {
     copyToArray(result, 0)
     result
   }
+  
+  /**
+   *  Overridden for efficiency.
+   *
+   *  @return  the sequence itself
+   */
+  override def toSeq: Seq[A] = this
 
   override def projection: Seq.Projection[A] = new Seq.Projection[A] {
     override def force: Seq[A] = Seq.this

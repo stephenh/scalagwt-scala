@@ -130,7 +130,7 @@ trait ModelExtractor {
     def resultType: Option[Type] = None
     def parents: Iterable[Type] = Nil
     def lo: Option[Type] = sym.info match {
-      case TypeBounds(lo, hi) if decode(lo.typeSymbol) != definitions.AllClass => Some(lo)
+      case TypeBounds(lo, hi) if decode(lo.typeSymbol) != definitions.NothingClass => Some(lo)
       case _ => None
     }
     def hi: Option[Type] = sym.info match {
@@ -182,7 +182,7 @@ trait ModelExtractor {
     override def kind = "object"
   }
 
-  case class Package(override val sym: ModuleSymbol) extends Entity(sym) {
+  case class Package(override val sym: Symbol) extends Entity(sym) {
     override def kind = "package"
     override def name = fullName('.')
   }
@@ -397,7 +397,7 @@ trait ModelExtractor {
     // override def plural = "Additional Constructors";
   }
   val Objects = Category("Object")(_.isModule);
-  val Classes = new Category("Class")(_.isClass) {
+  val Classes = new Category("Class")(sym => sym.isClass || (sym == definitions.AnyRefClass)) {
     override def plural = "Classes"
   }
   val Values = new Category("Value")(e => e.isValue && e.hasFlag(symtab.Flags.ACCESSOR)) {

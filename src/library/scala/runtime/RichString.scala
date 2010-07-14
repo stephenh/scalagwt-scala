@@ -73,7 +73,7 @@ final class RichString(val self: String) extends Proxy with RandomAccessSeq[Char
     }
     new RichString(buf.toString)
   }
-
+  
   /** return n times the current string 
    */
   def * (n: Int): String = {
@@ -214,6 +214,34 @@ final class RichString(val self: String) extends Proxy with RandomAccessSeq[Char
   def toLong: Long       = java.lang.Long.parseLong(self)
   def toFloat: Float     = java.lang.Float.parseFloat(self)
   def toDouble: Double   = java.lang.Double.parseDouble(self)
+
+  def toArray: Array[Char] = {
+    val result = new Array[Char](length)
+    self.getChars(0, length, result, 0)
+    result
+  }
+
+
+  /** <p>
+   *  Uses the underlying string as a pattern (in a fashion similar to
+   *  printf in C), and uses the supplied arguments to fill in the
+   *  holes.  Only works on Java 1.5 or higher!
+   *  </p>
+   *  <p>
+   *    The interpretation of the formatting patterns is described in
+   *    <a href="" target="contentFrame" class="java/util/Formatter">
+   *    <code>java.util.Formatter</code></a>.
+   *  </p>
+   *
+   *  @param args the arguments used to instantiating the pattern.
+   *  @throws java.lang.IllegalArgumentException
+   */
+  def format(args : Any*) : String = {
+    val m =  classOf[String].getDeclaredMethod("format", classOf[String], classOf[Array[Object]])
+    m.invoke(null, self, 
+	     args.asInstanceOf[scala.runtime.BoxedObjectArray].
+             unbox(args.getClass).asInstanceOf[Array[Object]]).asInstanceOf[String]
+  }
 }
 
 object RichString {

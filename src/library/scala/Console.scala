@@ -11,8 +11,8 @@
 
 package scala
 
-import java.io.{BufferedReader, InputStream, InputStreamReader,
-                OutputStream, PrintStream, Reader}
+import java.io.{BufferedReader, InputStream, InputStreamReader, 
+                IOException, OutputStream, PrintStream, Reader}
 import java.text.MessageFormat
 
 import scala.util.DynamicVariable
@@ -167,33 +167,35 @@ object Console {
    *  </p>
    *  <p>
    *    The interpretation of the formatting patterns is described in
-   *    <a href="" target="contentFrame" class="java/text/MessageFormat">
-   *    <code>java.text.MessageFormat</code></a>.
+   *    <a href="" target="contentFrame" class="java/util/Formatter">
+   *    <code>java.util.Formatter</code></a>.
    *  </p>
    *
    *  @param text the pattern for formatting the arguments.
    *  @param args the arguments used to instantiating the pattern.
    *  @throws java.lang.IllegalArgumentException
    */
-  def printf(text: String, args: Any*) { format(text, args: _*) }
+  def printf(text: String, args: Any*) { out.print(text format (args : _*)) }
 
   /**
    *  @see <a href="#printf(java.lang.String,scala.Any*)"
    *       target="contentFrame">Console.printf</a>.
+   *  @deprecated For console output, use <code>Console.printf</code>.  For <code>String</code> formatting, 
+   *              <code>RichString</code>'s <code>format</code> method.
    */
-  def format(text: String, args: Any*): Unit =
-    out.print(
-      if (text eq null) "null"
-      else MessageFormat.format(text, textParams(args))
-    )
+  @deprecated def format(text: String, args: Any*) {
+      if (text eq null) out.printf("null") else (out.print(text format (args : _*)))
+  }
 
-  /** Read a full line from the terminal.
+  /** Read a full line from the terminal.  Returns <code>null</code> if the end of the 
+   * input stream has been reached.
    *
-   *  @return the string read from the terminal.
+   * @return the string read from the terminal.
    */
   def readLine(): String = in.readLine()
 
-  /** Print a formatted text and read a full line from the terminal
+  /** Print a formatted text and read a full line from the terminal.  
+   * Returns null if the end of the input stream has been reached.
    *
    *  @param text the format of the text to print out.
    *  @param args the parameters used to instantiate the format.
@@ -204,56 +206,142 @@ object Console {
     readLine()
   }
 
-
-  /** Read a boolean value from the terminal.
+  /** Read a boolean value from the terminal. 
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
    *
    *  @return the boolean value read from the terminal.
+   *  @throws java.io.EOFException
    */
-  def readBoolean(): Boolean = readLine().toLowerCase() match {
-    case "true" => true
-    case "t" => true
-    case "yes" => true
-    case "y" => true
-    case _ => false
+  def readBoolean(): Boolean = {
+       val s = readLine()
+       if (s == null) 
+	 throw new java.io.EOFException("Console has reached end of input")
+       else
+	 s.toLowerCase() match {
+           case "true" => true
+	   case "t" => true
+	   case "yes" => true
+	   case "y" => true
+	   case _ => false
+	 }
   }
 
   /** Read a byte value from the terminal.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
+   *
+   *  @throws java.io.EOFException
    */
-  def readByte(): Byte = readLine().toByte
+  def readByte(): Byte = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      s.toByte
+  }
 
   /** Read a short value from the terminal.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
+   *
+   *  @throws java.io.EOFException
    */
-  def readShort(): Short = readLine().toShort
+  def readShort(): Short = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      s.toShort
+  }
 
   /** Read a char value from the terminal.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
+   *
+   *  @throws java.io.EOFException
    */
-  def readChar(): Char = readLine() charAt 0
+  def readChar(): Char = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      s charAt 0
+  }
 
   /** Read an int value from the terminal.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
+   *
+   *  @throws java.io.EOFException
    */
-  def readInt(): Int = readLine().toInt
+  def readInt(): Int = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      s.toInt
+  }
 
   /** Read an int value from the terminal.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
+   *
+   *  @throws java.io.EOFException
    */
-  def readLong(): Long = readLine().toLong
+  def readLong(): Long = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      s.toLong
+  }
 
   /** Read a float value from the terminal.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
+   *
+   *  @throws java.io.EOFException
    */
-  def readFloat(): Float = readLine().toFloat
+  def readFloat(): Float = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      s.toFloat
+  }
 
   /** Read a double value from the terminal.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
+   *
+   *  @throws java.io.EOFException
    */
-  def readDouble(): Double = readLine().toDouble
+  def readDouble(): Double = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      s.toDouble
+  }
 
   /** Read in some structured input, specified by a format specifier.
    *  See class <code>java.text.MessageFormat</code> for details of
    *  the format specification.
+   *  Throws <code>EOFException</code> if the end of the
+   *  input stream has been reached.
    *
    *  @param format the format of the input.
    *  @return a list of all extracted values.
+   *  @throws java.io.EOFException
    */
-  def readf(format: String): List[Any] =
-    textComponents(new MessageFormat(format).parse(readLine()))
+  def readf(format: String): List[Any] = {
+    val s = readLine()
+    if (s == null) 
+      throw new java.io.EOFException("Console has reached end of input")
+    else
+      textComponents(new MessageFormat(format).parse(s))
+  }
 
   /** Read in some structured input, specified by a format specifier.
    *  Opposed to <code>readf</code>, this function only returns the

@@ -187,9 +187,9 @@ abstract class ICodeReader extends ClassfileParser {
 
   override def classNameToSymbol(name: Name) = { 
     val sym = if (name == nothingName)
-      definitions.AllClass
+      definitions.NothingClass
     else if (name == nullName)
-      definitions.AllRefClass
+      definitions.NullClass
     else if (name.endsWith("$class")) {
       val iface = definitions.getClass(name.subName(0, name.length - "$class".length))
       log("forcing " + iface)
@@ -683,7 +683,7 @@ abstract class ICodeReader extends ClassfileParser {
 //        Console.println("> " + pc + ": " + instr);
         if (jmpTargets contains pc) {
           otherBlock = blocks(pc)
-          if (!bb.isClosed && otherBlock != bb) {
+          if (!bb.closed && otherBlock != bb) {
             bb.emit(JUMP(otherBlock))
             bb.close
 //            Console.println("\t> closing bb: " + bb)

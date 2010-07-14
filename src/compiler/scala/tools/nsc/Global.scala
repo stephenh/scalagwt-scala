@@ -47,53 +47,57 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   //def this() = this(new Settings, new ConsoleReporter)
 
   // sub-components --------------------------------------------------
-  object nodePrinters extends NodePrinters {
+
+  object nodePrinters extends {
     val global: Global.this.type = Global.this
+  } with NodePrinters {
     infolevel = InfoLevel.Verbose
   }
   val nodeToString = nodePrinters.nodeToString
 
-  object gen extends TreeGen {
+  object gen extends {
     val global: Global.this.type = Global.this
+  } with TreeGen {
     def mkAttributedCast(tree: Tree, pt: Type): Tree =
       typer.typed(mkAttributedCastUntyped(tree, pt))
   }
 
-  object constfold extends ConstantFolder {
+  object constfold extends {
     val global: Global.this.type = Global.this
-  }
+  } with ConstantFolder
 
-  object checker extends TreeCheckers {
+  object checker extends {
     val global: Global.this.type = Global.this
-  }
+  } with TreeCheckers
 
-  object icodes extends ICodes {
+  object icodes extends {
     val global: Global.this.type = Global.this
-  }
+  } with ICodes
 
-  object analysis extends TypeFlowAnalysis {
+  object analysis extends {
     val global: Global.this.type = Global.this
-  }
+  } with  TypeFlowAnalysis
 
-  object copyPropagation extends CopyPropagation {
+  object copyPropagation extends {
     val global: Global.this.type = Global.this
-  }
+  } with CopyPropagation
 
-  object checkers extends Checkers {
+  object checkers extends {
     val global: Global.this.type = Global.this
-  }
+  } with Checkers
 
-  object statistics extends Statistics {
+  object statistics extends {
     val global: Global.this.type = Global.this
-  }
+  } with Statistics
 
-  object overridingPairs extends OverridingPairs {
+  object overridingPairs extends {
     val global: Global.this.type = Global.this
-  }
+  } with OverridingPairs
 
-  object treeBrowsers extends TreeBrowsers {
+  object treeBrowsers extends {
     val global: Global.this.type = Global.this
-  }
+  } with TreeBrowsers
+
   val treeBrowser = treeBrowsers.create()
 
 
@@ -169,13 +173,13 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
       }
     try {
       val clazz = Class.forName(settings.sourceReader.value)
-      val ccon  = clazz.getConstructor(Array[Class[T] forSome { type T }](classOf[java.nio.charset.CharsetDecoder]))
-      ccon.newInstance(Array[AnyRef] (charset.newDecoder())).asInstanceOf[SourceReader];
+      val ccon  = clazz.getConstructor(classOf[java.nio.charset.CharsetDecoder], classOf[Reporter])
+      ccon.newInstance(charset.newDecoder(), reporter).asInstanceOf[SourceReader]
       //new SourceReader(charset.newDecoder())
     } catch {
       case e => 
         error("exception while trying to instantiate source reader \""+settings.sourceReader.value+"\" ");
-        new SourceReader(charset.newDecoder())
+        new SourceReader(charset.newDecoder(), reporter)
     }
   }
 
@@ -188,6 +192,16 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
       new classPath0.Build(settings.classpath.value, settings.sourcepath.value,
                            settings.outdir.value, settings.bootclasspath.value,
                            settings.extdirs.value, settings.Xcodebase.value)
+  /* .NET's equivalent of a classpath */
+  lazy val assemrefs = {
+    import java.util.{StringTokenizer}
+    val set = new HashSet[File]  
+    val assems = new StringTokenizer(settings.assemrefs.value, File.pathSeparator)
+    while (assems.hasMoreTokens()) 
+      set += new java.io.File(assems.nextToken())
+    set  
+  }
+                           
 
   if (settings.verbose.value) {
     inform("[Classpath = " + classPath + "]")
@@ -211,15 +225,15 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     getSourceFile(ret.sourceFile)
   }
   
-  val loaders = new SymbolLoaders {
-    lazy val global: Global.this.type = Global.this
-  }
+  lazy val loaders : SymbolLoaders { val global : Global.this.type } = new {
+    val global: Global.this.type = Global.this
+  } with SymbolLoaders
 
   def rootLoader: LazyType =
     if (forMSIL) new loaders.NamespaceLoader(classPath.root)
     else new loaders.PackageLoader(classPath.root /* getRoot() */)
 
-// Phases ------------------------------------------------------------
+// Phases ------------------------------------------------------------}
 
   var globalPhase: Phase = NoPhase
 
@@ -238,13 +252,20 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     override def erasedTypes: Boolean = isErased
     private val isFlat = prev.name == "flatten" || prev.flatClasses
     override def flatClasses: Boolean = isFlat
+    private val isDevirtualized = prev.name == "devirtualize" || prev.devirtualized
+    override def devirtualized: Boolean = isDevirtualized  // (part of DEVIRTUALIZE)
+
+	/** Is current phase cancelled on this unit? */
+    def cancelled(unit: CompilationUnit) = 
+      reporter.cancelled ||
+      unit.isJava && this.id > currentRun.namerPhase.id
 
     final def applyPhase(unit: CompilationUnit) {
       if (settings.debug.value) inform("[running phase " + name + " on " + unit + "]")
       val unit0 = currentRun.currentUnit
       currentRun.currentUnit = unit
       reporter.setSource(unit.source)
-      if (!reporter.cancelled) apply(unit)
+      if (!cancelled(unit)) apply(unit)
       currentRun.advanceUnit
       assert(currentRun.currentUnit == unit)
       currentRun.currentUnit = unit0
@@ -256,114 +277,118 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     def apply(unit: CompilationUnit) {}
   }
 
-  object syntaxAnalyzer extends SyntaxAnalyzer {
+  object syntaxAnalyzer extends {
     val global: Global.this.type = Global.this
-  }
+  } with SyntaxAnalyzer
 
-  object analyzer extends Analyzer {
+  object analyzer extends {
     val global: Global.this.type = Global.this
-  }
+  } with Analyzer
 
-  object superAccessors extends SuperAccessors {
+  object superAccessors extends {
     val global: Global.this.type = Global.this
-  }
+  } with SuperAccessors
 
-  object pickler extends Pickler {
+  object pickler extends {
     val global: Global.this.type = Global.this
-  }
+  } with Pickler
 
-  object refchecks extends RefChecks {
+  object refchecks extends {
     val global: Global.this.type = Global.this
-  }
-
-  object liftcode extends LiftCode {
+  } with RefChecks
+/*
+  object devirtualize extends {
     val global: Global.this.type = Global.this
-  }
-
-  object uncurry extends UnCurry {
+  } with DeVirtualize
+*/
+  object liftcode extends {
     val global: Global.this.type = Global.this
-  }
+  } with LiftCode
 
-  object tailCalls extends TailCalls {
+  object uncurry extends {
     val global: Global.this.type = Global.this
-  }
+  } with UnCurry
 
-  //object transMatcher extends TransMatcher {
+  object tailCalls extends {
+    val global: Global.this.type = Global.this
+  } with TailCalls
+
+  //object transMatcher extends {
   //  val global: Global.this.type = Global.this
-  //}
+  //} with TransMatcher
 
-//  object checkDefined extends CheckDefined {
+//  object checkDefined extends {
 //    val global: Global.this.type = Global.this
-//  }
+//  } with CheckDefined
 
-  object explicitOuter extends ExplicitOuter {
+  object explicitOuter extends {
     val global: Global.this.type = Global.this
-  }
+  } with ExplicitOuter
 
-  object erasure extends Erasure {
+  object erasure extends {
     val global: Global.this.type = Global.this
-  }
+  } with Erasure
   
-  object lazyVals extends LazyVals {
+  object lazyVals extends {
     val global: Global.this.type = Global.this
     final val FLAGS_PER_WORD = 32
-  }
+  } with LazyVals
 
-  object lambdaLift extends LambdaLift {
+  object lambdaLift extends {
     val global: Global.this.type = Global.this
-  }
+  } with LambdaLift
 
-  object constructors extends Constructors {
+  object constructors extends {
     val global: Global.this.type = Global.this
-  }
+  } with Constructors
 
-  object flatten extends Flatten {
+  object flatten extends {
     val global: Global.this.type = Global.this
-  }
+  } with Flatten
 /*
-  object detach extends Detach {
+  object detach extends {
     val global: Global.this.type = Global.this
-  }
+  } with Detach
 */
-  object mixer extends Mixin {
+  object mixer extends {
     val global: Global.this.type = Global.this
-  }
+  } with Mixin
 
-  object cleanup extends CleanUp {
+  object cleanup extends {
     val global: Global.this.type = Global.this
-  }
+  } with CleanUp
 
-  object sampleTransform extends SampleTransform {
+  object sampleTransform extends {
     val global: Global.this.type = Global.this
-  }
+  } with SampleTransform
 
-  object genicode extends GenICode {
+  object genicode extends {
     val global: Global.this.type = Global.this
-  }
+  } with GenICode
 /*
   object icodePrinter extends backend.icode.Printers {
     val global: Global.this.type = Global.this
   }
 */
-  object scalaPrimitives extends ScalaPrimitives {
+  object scalaPrimitives extends {
     val global: Global.this.type = Global.this
-  }
+  } with ScalaPrimitives
 
-  object inliner extends Inliners {
+  object inliner extends {
     val global: Global.this.type = Global.this
-  }
+  } with Inliners
 
-  object closureElimination extends ClosureElimination {
+  object closureElimination extends {
     val global: Global.this.type = Global.this
-  }
+  } with ClosureElimination
 
-  object deadCode extends DeadCodeElimination {
+  object deadCode extends {
     val global: Global.this.type = Global.this
-  }
+  } with DeadCodeElimination
 
-  object genJVM extends GenJVM {
+  object genJVM extends {
     val global: Global.this.type = Global.this
-  }
+  } with GenJVM
   
   object removeNothingExpressions extends RemoveNothingExpressions {
     val global: Global.this.type = Global.this
@@ -377,10 +402,10 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     val global: Global.this.type = Global.this
   }
 
-  object genMSIL extends GenMSIL {
+  object genMSIL extends {
     val global: Global.this.type = Global.this
-  }
-
+  } with GenMSIL
+ 
   object icodeChecker extends checkers.ICodeChecker()
 
   object typer extends analyzer.Typer(
@@ -407,10 +432,15 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     analyzer.namerFactory: SubComponent, // note: types are there because otherwise
     analyzer.typerFactory: SubComponent, // consistency check after refchecks would fail.
     superAccessors,  // add super accessors
-    pickler,         // serializes symbol tables
-    refchecks       // perform reference and override checking, translate nested objects
+    pickler         // serialize symbol tables
+
+    // Desugar virtual classes
+    // if (false && settings.Xexperimental.value) List(devirtualize) else List() 
+
+  ) ::: List(
+    refchecks        // perform reference and override checking, translate nested objects
   ) ::: (
-    if (forJVM) List(liftcode) else List()  // generate reified trees
+    if (forJVM) List(liftcode) else List() // generate reified trees
   ) ::: List(
     uncurry,         // uncurry, translate function values to anonymous classes
     tailCalls,       // replace tail calls by jumps
@@ -420,8 +450,10 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     lazyVals,
     lambdaLift,      // move nested functions to top level
 //    detach, 
-    constructors,    // move field definitions into constructors
-    flatten,         // get rid of inner classes
+    constructors     // move field definitions into constructors
+  ) ::: (
+    if (forMSIL) List() else List(flatten) // get rid of inner classes
+  ) ::: List(
     mixer,           // do mixin composition
     cleanup          // some platform-specific cleanups
   ) ::: (
@@ -505,9 +537,10 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
       unitc += 1
       refreshProgress
     }
-    private def refreshProgress = if (fileset.size > 0)
-      progress((phasec * fileset.size) + unitc,
-               (phaseDescriptors.length+1) * fileset.size)
+    private def refreshProgress = 
+      if (fileset.size > 0)
+        progress((phasec * fileset.size) + unitc,
+                 (phaseDescriptors.length+1) * fileset.size)
 
     def phaseNamed(name: String): Phase = {
       var p: Phase = firstPhase
@@ -517,6 +550,7 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
 
     val namerPhase = phaseNamed("namer")
     val typerPhase = phaseNamed("typer")
+    val picklerPhase = phaseNamed("pickler")
     val refchecksPhase = phaseNamed("refchecks")
 
     val explicitOuterPhase = phaseNamed("explicitouter")
@@ -608,7 +642,6 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
         }
       }
       for ((sym, file) <- symSource.elements) resetPackageClass(sym.owner)
-      //units foreach (.clear())
       informTime("total", startTime)
     }
 
@@ -623,11 +656,12 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
         val unit = new CompilationUnit(getSourceFile(file))
         addUnit(unit)
         var localPhase = firstPhase.asInstanceOf[GlobalPhase]
-        while ((localPhase.id < globalPhase.id || localPhase.id <= namerPhase.id) && !reporter.hasErrors) {
+        while (localPhase != null && (localPhase.id < globalPhase.id || localPhase.id <= namerPhase.id) && !reporter.hasErrors) {
           val oldSource = reporter.getSource          
           reporter.setSource(unit.source)          
           atPhase(localPhase)(localPhase.applyPhase(unit))
-          localPhase = localPhase.next.asInstanceOf[GlobalPhase]
+          val newLocalPhase = localPhase.next.asInstanceOf[GlobalPhase]
+          localPhase = if (localPhase == newLocalPhase) null else newLocalPhase
           reporter.setSource(oldSource)
         }
         refreshProgress

@@ -6,11 +6,32 @@
 **                          |/                                          **
 \*                                                                      */
 
-// $Id: $
+// $Id$
 
 package scala
 
+import collection.mutable.ArrayBuffer
+
 object RandomAccessSeq {
+  
+  /** Create read only sequence of specified elements */
+  def apply[A](xs: A*): RandomAccessSeq[A] =
+    if (xs.isEmpty) empty
+    else {
+      val buffer = new ArrayBuffer[A]
+      xs copyToBuffer buffer
+      buffer.readOnly
+    }
+  
+  /** The empty sequence */
+  val empty : RandomAccessSeq[Nothing] = new RandomAccessSeq.Projection[Nothing] {
+    def length = 0
+    def apply(i: Int): Nothing = throw new NoSuchElementException("empty sequence")
+    override def elements = Iterator.empty
+    override def projection = this
+    override def force = this
+  }
+
   trait Projection[+A] extends Seq.Projection[A] with RandomAccessSeq[A] {
     override def projection = this
     override def force : RandomAccessSeq[A] = toArray
@@ -159,6 +180,24 @@ trait RandomAccessSeq[+A] extends Seq[A] {
     def apply(idx : Int) = RandomAccessSeq.this.apply(length - idx - 1)
     override def stringPrefix = RandomAccessSeq.this.stringPrefix + "R"
     override def reverse : RandomAccessSeq.Projection[A] = RandomAccessSeq.this.projection
+  }
+  
+  /** Partitions this random access sequence in two random access
+   *  sequences according to a predicate.
+   *
+   *  @param p the predicate on which to partition
+   *  @return  a pair of random access sequences: the sequence of all elements
+   *           that satisfy the predicate <code>p</code> and the sequence of
+   *           all elements that do not.
+   *           The relative order of the elements in the resulting sequences
+   *           is the same as in the original sequence.
+   */
+  override def partition(p: A => Boolean): (RandomAccessSeq[A], RandomAccessSeq[A]) = {
+    val matched = new ArrayBuffer[A]
+    val failed = new ArrayBuffer[A]
+    val elems = elements
+    while (elems.hasNext) { val x = elems.next; if (p(x)) matched += x else failed += x }
+    (matched, failed)
   }
   
   /** insert segment <code>patch</code> into this sequence at <code>from</code>  

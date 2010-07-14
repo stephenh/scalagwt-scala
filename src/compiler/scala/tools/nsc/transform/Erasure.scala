@@ -6,6 +6,7 @@
 
 package scala.tools.nsc.transform
 
+import scala.tools.nsc.symtab.classfile.ClassfileConstants._
 import scala.collection.mutable.{HashMap,ListBuffer}
 import scala.tools.nsc.util.Position
 import symtab._
@@ -65,8 +66,6 @@ abstract class Erasure extends AddInterfaces with typechecker.Analyzer {
       tp match {
         case ConstantType(_) =>
           tp
-        case NotNullType(tp) => // BQ to Martin: this used to be below st:SubType and unreachable, moved up
-          apply(tp)
         case st: SubType =>
           apply(st.supertype)
         case TypeRef(pre, sym, args) =>
@@ -82,7 +81,7 @@ abstract class Erasure extends AddInterfaces with typechecker.Analyzer {
           if (sym == ArrayClass)
             if (isGeneric(tp)) erasedTypeRef(BoxedArrayClass)
             else typeRef(apply(pre), sym, args map this)
-          else if (sym == AnyClass || sym == AnyValClass) erasedTypeRef(ObjectClass)
+          else if (sym == AnyClass || sym == AnyValClass || sym == SingletonClass) erasedTypeRef(ObjectClass)
           else if (sym == UnitClass) erasedTypeRef(BoxedUnitClass)
           else if (sym.isClass) 
             typeRef(apply(if (sym.owner.isClass) sym.owner.tpe else pre), sym, List())
@@ -91,10 +90,15 @@ abstract class Erasure extends AddInterfaces with typechecker.Analyzer {
           apply(restpe)
         case ExistentialType(tparams, restpe) =>
           apply(restpe)
-        case MethodType(formals, restpe) =>
+        case mt @ MethodType(formals, restpe) =>
           MethodType(
             formals map apply,
-            if (restpe.typeSymbol == UnitClass) erasedTypeRef(UnitClass) else apply(restpe))
+            if (restpe.typeSymbol == UnitClass) 
+              erasedTypeRef(UnitClass) 
+            else if (settings.Xexperimental.value)
+              apply(mt.resultType(formals)) // this gets rid of DeBruijnTypes
+            else
+              apply(restpe))
         case RefinedType(parents, decls) =>
           if (parents.isEmpty) erasedTypeRef(ObjectClass) 
           else apply(parents.head)
@@ -109,6 +113,121 @@ abstract class Erasure extends AddInterfaces with typechecker.Analyzer {
         case _ =>
           mapOver(tp)
       }
+    }
+  }
+
+  private object NeedsSigCollector extends TypeCollector(false) {
+    def traverse(tp: Type) { 
+      if (!result) { 
+        tp match {
+          case st: SubType =>
+            traverse(st.supertype)
+          case TypeRef(pre, sym, args) =>
+            if (sym == ArrayClass) args foreach traverse
+            else if (sym.isTypeParameterOrSkolem || sym.isExistential || !args.isEmpty) result = true
+            else if (!sym.owner.isPackageClass) traverse(pre)
+          case PolyType(_, _) | ExistentialType(_, _) =>
+            result = true
+          case RefinedType(parents, decls) =>
+            if (!parents.isEmpty) traverse(parents.head)
+          case ClassInfoType(parents, _, _) =>
+            parents foreach traverse
+	  case AnnotatedType(_, atp, _) =>
+	    traverse(atp)
+          case _ =>
+            mapOver(tp)
+        }
+      }
+    }
+  }
+
+  private def needsJavaSig(tp: Type) = NeedsSigCollector.collect(tp)
+
+  private lazy val tagOfClass = new HashMap[Symbol,Char] + (
+    ByteClass -> BYTE_TAG,
+    CharClass -> CHAR_TAG,
+    DoubleClass -> DOUBLE_TAG,
+    FloatClass -> FLOAT_TAG,
+    IntClass -> INT_TAG,
+    LongClass -> LONG_TAG,
+    ShortClass -> SHORT_TAG,
+    BooleanClass -> BOOL_TAG,
+    UnitClass -> VOID_TAG
+  )
+
+  def javaSig(sym: Symbol): Option[String] = atPhase(currentRun.erasurePhase) {
+    if (needsJavaSig(sym.info)) Some(javaSig(sym.info))
+    else None
+  }
+
+  private def javaSig(tp: Type): String = javaSig(List(), tp)
+
+  private def javaSig(tparams: List[Symbol], tp0: Type): String = {
+    val tp = tp0.normalize 
+    tp match {
+      case st: SubType =>
+        javaSig(tparams, st.supertype)
+      case ExistentialType(tparams, tpe) =>
+        javaSig(tparams, tpe)
+      case TypeRef(pre, sym, args) =>
+        def argSig(tp: Type) =
+          if (tparams contains tp.typeSymbol) {
+            val bounds = tp.typeSymbol.info.bounds
+            if (!(AnyRefClass.tpe <:< bounds.hi)) "+"+javaSig(bounds.hi)
+            else if (!(bounds.lo <:< NullClass.tpe)) "-"+javaSig(bounds.lo)
+            else "*"
+          } else javaSig(tp)
+        def classSig: String = 
+          "L"+atPhase(currentRun.icodePhase)(sym.fullNameString).replace('.', '/')
+        def classSigSuffix: String = 
+          "."+atPhase(currentRun.icodePhase)(sym.name)
+        if (sym == ArrayClass)
+          ARRAY_TAG.toString+(args map javaSig).mkString
+        else if (sym.isTypeParameterOrSkolem)
+          TVAR_TAG.toString+sym.name+";"
+        else if (sym == AnyClass || sym == AnyValClass || sym == SingletonClass) 
+          javaSig(ObjectClass.tpe)
+        else if (sym == UnitClass) 
+          javaSig(BoxedUnitClass.tpe)
+        else if (isValueClass(sym)) 
+          tagOfClass(sym).toString
+        else if (sym.isClass)
+          { 
+            if (needsJavaSig(pre)) {
+              val s = javaSig(pre) 
+              if (s.charAt(0) == 'L') s.substring(0, s.length - 1) + classSigSuffix
+              else classSig
+            } else classSig
+          } + {
+            if (args.isEmpty) "" else "<"+(args map argSig).mkString+">"
+          } + ";"
+        else javaSig(erasure(tp))
+      case PolyType(tparams, restpe) =>
+        def hiBounds(bounds: TypeBounds): List[Type] = bounds.hi.normalize match {
+          case RefinedType(parents, _) => parents map normalize
+          case tp => List(tp)
+        }
+        def boundSig(bounds: List[Type]) = {
+          val classBound = bounds find (t => t.typeSymbol.isClass && !t.typeSymbol.isTrait) match {
+            case Some(t) => javaSig(t)
+            case None => ""
+          }
+          ":"+classBound+(for (t <- bounds if t.typeSymbol.isTrait) yield ":"+javaSig(t)).mkString
+        }
+        assert(!tparams.isEmpty)
+        def paramSig(tsym: Symbol) = tsym.name+boundSig(hiBounds(tsym.info.bounds))
+        "<"+(tparams map paramSig).mkString+">"+javaSig(restpe) 
+      case MethodType(formals, restpe) =>
+        "("+(formals map javaSig).mkString+")"+
+        (if (restpe.typeSymbol == UnitClass) VOID_TAG.toString else javaSig(restpe))
+      case RefinedType(parents, decls) if (!parents.isEmpty) =>
+        javaSig(parents.head)
+      case ClassInfoType(parents, _, _) =>
+        (parents map javaSig).mkString
+      case AnnotatedType(_, atp, _) =>
+        javaSig(atp)
+      case _ =>
+        javaSig(erasure(tp))
     }
   }
 
@@ -171,8 +290,16 @@ abstract class Erasure extends AddInterfaces with typechecker.Analyzer {
             MethodType(List(erasure(index), tvar), erasedTypeRef(UnitClass))
         }
       else erasure(tp)
-    } else
-      transformMixinInfo(erasure(tp));
+    } else {
+/*
+      val erased = 
+        if (sym.isGetter && sym.tpe.isInstanceOf[MethodType]) 
+          erasure mapOver sym.tpe // for getters, unlike for normal methods, always convert Unit to BoxedUnit.
+        else 
+          erasure(tp)
+*/
+      transformMixinInfo(erasure(tp))
+    }
 
   val deconstMap = new TypeMap {
    def apply(tp: Type): Type = tp match {
@@ -184,6 +311,16 @@ abstract class Erasure extends AddInterfaces with typechecker.Analyzer {
 
   private def isSeqClass(sym: Symbol) =
     (SeqClass isNonBottomSubClass sym) && (sym != ObjectClass)
+
+  /** The symbol which is called by a bridge;
+   *  @pre phase > erasure
+   */
+  def bridgedSym(bridge: Symbol) = 
+    bridge.owner.info.nonPrivateDecl(bridge.name) suchThat {
+      sym => !(sym hasFlag BRIDGE) && 
+             matchesType(sym.tpe, bridge.tpe, true) && 
+             sym.tpe.resultType <:< bridge.tpe.resultType
+    }
 
 // -------- boxing/unboxing --------------------------------------------------------
 
@@ -875,6 +1012,10 @@ abstract class Erasure extends AddInterfaces with typechecker.Analyzer {
           case Match(selector, cases) =>
             Match(Typed(selector, TypeTree(selector.tpe)), cases)
 
+          case Literal(ct) if ct.tag == ClassTag 
+                           && ct.typeValue.typeSymbol != definitions.UnitClass =>
+            copy.Literal(tree, Constant(erasure(ct.typeValue)))
+            
           case _ =>
             tree
         }

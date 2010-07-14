@@ -40,8 +40,10 @@ abstract class SuperAccessors extends transform.Transform with transform.TypingT
     private var accDefs: List[(Symbol, ListBuffer[Tree])] = List()
     private val typer = analyzer.newTyper(analyzer.rootContext(unit))
 
-    private def accDefBuf(clazz: Symbol) =
-      accDefs.dropWhile(_._1 != clazz).head._2
+    private def accDefBuf(clazz: Symbol) = accDefs find (_._1 == clazz) match {
+      case Some((_, buf)) => buf
+      case None => throw new AssertionError("no acc def buf for "+clazz)
+    }
 /*
     private def transformArgs(args: List[Tree], formals: List[Type]) = {
       if (!formals.isEmpty && formals.last.symbol == definitions.ByNameParamClass)
@@ -184,7 +186,8 @@ abstract class SuperAccessors extends transform.Transform with transform.TypingT
       case Select(sup @ Super(_, mix), name) =>
         val sym = tree.symbol
         if (sym.isValue && !sym.isMethod || sym.hasFlag(ACCESSOR)) {
-          unit.error(tree.pos, "super may be not be used on "+sym)
+          unit.error(tree.pos, "super may be not be used on "+
+                     (if (sym.hasFlag(ACCESSOR)) sym.accessed else sym))
         }
         transformSuperSelect(tree)
       
@@ -217,7 +220,7 @@ abstract class SuperAccessors extends transform.Transform with transform.TypingT
           super.transform(tree)
 
       case Apply(fn, args) =>
-        assert(fn.tpe != null) 
+        assert(fn.tpe != null, tree) 
         copy.Apply(tree, transform(fn), transformArgs(args, fn.tpe.paramTypes))
       case Function(vparams, body) =>
         withInvalidOwner {
@@ -397,7 +400,7 @@ abstract class SuperAccessors extends transform.Transform with transform.TypingT
       if (res) {
         val host = hostForAccessorOf(sym, currentOwner.enclClass)
         if (host.thisSym != host) {
-          if (host.thisSym.tpe.typeSymbol.hasFlag(JAVA) || currentOwner.enclClass.isTrait)
+          if (host.thisSym.tpe.typeSymbol.hasFlag(JAVA))
             unit.error(pos, "Implementation restriction: " + currentOwner.enclClass + " accesses protected "
                             + sym + " from self type " + host.thisSym.tpe)
           false

@@ -32,9 +32,9 @@ trait JavaSourceFormatting {
     def suffix = if (sym.isModuleClass && !sym.isTrait && !sym.hasFlag(JAVA)) "$" else ""
 
     // TODO(spoon): why the special cases?  double check that they are needed
-    if (sym == definitions.AllClass)
+    if (sym == definitions.NothingClass)
       return "scala.runtime.Nothing$"
-    else if (sym == definitions.AllRefClass)
+    else if (sym == definitions.NullClass)
       return "scala.runtime.Null$"
 
     val name = if (fullyQualify) sym.fullNameString('.') else sym.simpleName

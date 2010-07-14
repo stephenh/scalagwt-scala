@@ -73,7 +73,7 @@ trait JavaSourceAnalysis {
   def isConstructor(defDef: DefDef) = defDef.name == nme.CONSTRUCTOR
     
   def isNothing(tpe: Type): Boolean =
-    (tpe != null) && (tpe =:= definitions.AllClass.tpe)
+    (tpe != null) && (tpe =:= definitions.NothingClass.tpe)
   
   def isNothing(tree: Tree): Boolean = isNothing(tree.tpe)
   

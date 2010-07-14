@@ -2,6 +2,8 @@
  * @author Philipp Haller
  */
 
+// $Id$
+
 package scala.tools.partest.nest
 
 import java.io.{File, FileInputStream, FileOutputStream, PrintStream,
@@ -12,7 +14,7 @@ import java.net.URL
 
 import scala.tools.nsc.{ObjectRunner, GenericRunnerCommand}
 
-import scala.actors.Actor
+import scala.actors.{Actor, Exit, TIMEOUT}
 import scala.actors.Actor._
 
 case class RunTests(kind: String, files: List[File])
@@ -69,7 +71,7 @@ class Worker(val fileManager: FileManager) extends Actor {
     NestUI.normal("[...]"+name+List.toString(List.make(totalWidth-name.length, ' ')), printer)
   }
 
-  def printInfoEnd(success: boolean, printer: PrintWriter) {
+  def printInfoEnd(success: Boolean, printer: PrintWriter) {
     NestUI.normal("[", printer)
     if (success) NestUI.success("  OK  ", printer)
     else NestUI.failure("FAILED", printer)
@@ -102,14 +104,13 @@ class Worker(val fileManager: FileManager) extends Actor {
   def execTestObjectRunner(file: File, outDir: File, logFile: File) {
     val consFM = new ConsoleFileManager
     import consFM.{latestCompFile, latestLibFile, latestActFile,
-                   latestPartestFile, latestFjbgFile}
+                   latestPartestFile}
 
     val classpath: List[URL] =
       outDir.toURL ::
       //List(file.getParentFile.toURL) :::
       List(latestCompFile.toURL, latestLibFile.toURL,
-           latestActFile.toURL, latestPartestFile.toURL,
-           latestFjbgFile.toURL) :::
+           latestActFile.toURL, latestPartestFile.toURL) :::
       (List.fromString(CLASSPATH, File.pathSeparatorChar) map { x =>
         (new File(x)).toURL })
     NestUI.verbose("ObjectRunner classpath: "+classpath)
@@ -209,10 +210,21 @@ class Worker(val fileManager: FileManager) extends Actor {
       val reader = new BufferedReader(new FileReader(logFile))
       val swriter = new StringWriter
       val pwriter = new PrintWriter(swriter, true)
-      val appender = new StreamAppender(reader, writer)
+      val appender = new StreamAppender(reader, pwriter)
       appender.run()
       log = swriter.toString
     }
+  }
+
+  def existsCheckFile(dir: File, fileBase: String, kind: String) = {
+    val checkFile = {
+      val chkFile = new File(dir, fileBase + ".check")
+      if (chkFile.isFile)
+        chkFile
+      else
+        new File(dir, fileBase + "-" + kind + ".check")
+    }
+    checkFile.exists && checkFile.canRead
   }
 
   def compareOutput(dir: File, fileBase: String, kind: String, logFile: File): String = {
@@ -224,8 +236,25 @@ class Worker(val fileManager: FileManager) extends Actor {
       else
         new File(dir, fileBase + "-" + kind + ".check")
     }
-    if (!checkFile.exists || !checkFile.canRead) ""
+    if (!checkFile.exists || !checkFile.canRead) {
+      val reader = new BufferedReader(new FileReader(logFile))
+      val swriter = new StringWriter
+      val pwriter = new PrintWriter(swriter, true)
+      val appender = new StreamAppender(reader, pwriter)
+      appender.run()
+      swriter.toString
+    }
     else fileManager.compareFiles(logFile, checkFile)
+  }
+
+  def file2String(logFile: File) = {
+    val logReader = new BufferedReader(new FileReader(logFile))
+    val strWriter = new StringWriter
+    val logWriter = new PrintWriter(strWriter, true)
+    val logAppender = new StreamAppender(logReader, logWriter)
+    logAppender.run()
+    logReader.close()
+    strWriter.toString
   }
 
   /** Runs a list of tests.
@@ -331,7 +360,12 @@ class Worker(val fileManager: FileManager) extends Actor {
             } else { // compare log file to check file
               val fileBase = basename(file.getName)
               val dir      = file.getParentFile
-              diff = compareOutput(dir, fileBase, kind, logFile)
+              if (!existsCheckFile(dir, fileBase, kind)) {
+                // diff is contents of logFile
+                diff = file2String(logFile)
+              } else
+                diff = compareOutput(dir, fileBase, kind, logFile)
+
               if (!diff.equals("")) {
                 NestUI.verbose("output differs from log file\n")
                 succeeded = false
@@ -422,7 +456,28 @@ class Worker(val fileManager: FileManager) extends Actor {
               logWriter.print(prompt)
               val line = resReader.readLine()
               if ((line ne null) && line.length() > 0) {
-                action(line)
+                val parent = self
+                self.trapExit = true
+                val child = link {
+                  action(line)
+                }
+
+                receiveWithin(fileManager.timeout.toLong) {
+                  case TIMEOUT =>
+                    NestUI.verbose("action timed out")
+                    false
+                  case Exit(from, reason) if from == child => reason match {
+                    case 'normal => // do nothing
+                    case t: Throwable =>
+                      NestUI.verbose("while invoking compiler:")
+                      NestUI.verbose("caught "+t)
+                      t.printStackTrace
+                      if (t.getCause != null)
+                        t.getCause.printStackTrace
+                      false
+                  }
+                }
+
                 loop(action)
               }
             }
@@ -657,13 +712,18 @@ class Worker(val fileManager: FileManager) extends Actor {
   }
 
   def showLog(logFile: File) {
-    val logReader = new BufferedReader(new FileReader(logFile))
-    val strWriter = new StringWriter
-    val logWriter = new PrintWriter(strWriter, true)
-    val logAppender = new StreamAppender(logReader, logWriter)
-    logAppender.run()
-    logReader.close()
-    val log = strWriter.toString
-    NestUI.normal(log)
+    try {
+      val logReader = new BufferedReader(new FileReader(logFile))
+      val strWriter = new StringWriter
+      val logWriter = new PrintWriter(strWriter, true)
+      val logAppender = new StreamAppender(logReader, logWriter)
+      logAppender.run()
+      logReader.close()
+      val log = strWriter.toString
+      NestUI.normal(log)
+    } catch {
+      case fnfe: java.io.FileNotFoundException =>
+        NestUI.failure("Couldn't open log file \""+logFile+"\".")
+    }
   }
 }
