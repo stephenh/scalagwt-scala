@@ -9,14 +9,14 @@
 // $Id: RemoveNonJavaExpressions.scala 15515 2008-07-09 15:30:59Z spoon $
 
 package scala.tools.nsc
-package backend.javasrc
+package backend.jribble
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.tools.nsc.transform.Transform
 import scala.tools.nsc.symtab.SymbolTable
 
 /**
- * Several expressions in Scala can only be statements in Java.  This
+ * Several expressions in Scala can only be statements in Jribble.  This
  * transform rewrites method bodies with such expressions whenever they
  * appear in an expression context.  For example, arguments to
  * method calls are in an expression context, but the statements of
@@ -25,7 +25,7 @@ import scala.tools.nsc.symtab.SymbolTable
  * In addition, this transform does the following normalizations:
  * <ul>
  * <li> All methods that don't return Unit get an explicit return
- * <li> Expressions in statement position that Java disallows as
+ * <li> Expressions in statement position that Jribble disallows as
  *      statements are discarded.  Examples are literals,
  *      field selections, and <code>this</code>.  TODO(spoon): check that field selects are safe to drop; the instance can have a side effect!
  * <li> All thrown, checked exceptions are hidden from Java using
@@ -44,13 +44,13 @@ import scala.tools.nsc.symtab.SymbolTable
  * 
  * TODO(spoon): in constructor calls within a constructor, the extracted
  * code needs to be moved to a method in some top-level object, because the
- * Java compiler will not allow any statements to precede the constructor call.
+ * Jribble compiler will not allow any statements to precede the constructor call.
  */
-trait NormalizeForJavaSource
+trait NormalizeForJribble
 extends Transform
 with JavaDefinitions
-with JavaSourceAnalysis
-with JavaSourceNormalization
+with JribbleAnalysis
+with JribbleNormalization
 {
   val global: Global
   import global._
@@ -58,7 +58,7 @@ with JavaSourceNormalization
   import global.gen.mkAttributedIdent
   import javaDefinitions._
 
-  override val phaseName = "normjvmsrc"
+  override val phaseName = "normjribble"
   
   override protected def newTransformer(unit: CompilationUnit): Transformer =
     new Trans(unit)
@@ -98,20 +98,20 @@ with JavaSourceNormalization
     
     /**
      * Transform a tree into a list of statements followed by a new tree.
-     * In all of the resulting trees, the only place a non-Java expression appears
+     * In all of the resulting trees, the only place a non-Jribble expression appears
      * is in a statement context.  If <code>isStat</code> is true,
      * the final tree is considered to be in a statement context.
      */
-    def removeNonJavaExpressions(tree: Tree, isStat: Boolean): (List[Tree], Tree) =
+    def removeNonJribbleExpressions(tree: Tree, isStat: Boolean): (List[Tree], Tree) =
       newStatsAndValue { if (isStat) transformStatement(tree) else transform(tree) }
 
     /**
-     * Transform a list of Scala expressions into a list of Java statements 
-     * followed by a list of Java expressions.  The list of Java expressions
+     * Transform a list of Scala expressions into a list of Jribble statements 
+     * followed by a list of Jribble expressions.  The list of Jribble expressions
      * will be the same length as the original list of trees, and evaluating 
      * one of them will give the same value as the original Scala expression.
      */
-    def removeNonJavaExpressions(trees: List[Tree]): (List[Tree], List[Tree]) =
+    def removeNonJribbleExpressions(trees: List[Tree]): (List[Tree], List[Tree]) =
       newStatsAndValue { transformTrees(trees) }
       
     /**
@@ -135,7 +135,7 @@ with JavaSourceNormalization
      */
     override def transformTrees(trees: List[Tree]): List[Tree] = {
       val transformedWithStats: List[(List[Tree], Tree)] = 
-        trees.map(removeNonJavaExpressions(_, false))
+        trees.map(removeNonJribbleExpressions(_, false))
       
       val lastWithStats = transformedWithStats.findLastIndexOf{
         case (stats, exp) => !stats.isEmpty
@@ -188,7 +188,7 @@ with JavaSourceNormalization
         case Block(stats, exp) =>
           val newBlockStats = new ListBuffer[Tree]
           for (stat <- stats) {
-            val (statNewStats, statT) = removeNonJavaExpressions(stat, true)
+            val (statNewStats, statT) = removeNonJribbleExpressions(stat, true)
             newBlockStats ++= statNewStats
             if (canBeStatement(statT)) {
               // The only non-statement expressions also have no side
@@ -196,7 +196,7 @@ with JavaSourceNormalization
               newBlockStats += statT
             }
           }
-          val (expNewStats, expT) = removeNonJavaExpressions(exp, false)
+          val (expNewStats, expT) = removeNonJribbleExpressions(exp, false)
           newBlockStats ++= expNewStats
           if (canBeStatement(expT))
             newBlockStats += expT
@@ -219,7 +219,7 @@ with JavaSourceNormalization
       }
 
     /**
-     * Transform a tree to a new tree that does not use any non-Java expressions
+     * Transform a tree to a new tree that does not use any non-Jribble expressions
      * in an expression context.  As a side effect, add statements to <code>newStats</code>
      * whose execution should precede that of the returned tree.  The <code>tree</code>
      * passed as an argument is assumed to be in an expression context.
@@ -263,7 +263,7 @@ with JavaSourceNormalization
            transform(expr)
 	    case If(cond, exp1, exp2) =>
 	      val condT = transform(cond)
-          val (branchStats, List(condTT, exp1T, exp2T)) = removeNonJavaExpressions(List(condT, exp1, exp2))
+          val (branchStats, List(condTT, exp1T, exp2T)) = removeNonJribbleExpressions(List(condT, exp1, exp2))
           if (branchStats.isEmpty && !isNothing(exp1T) && !isNothing(exp2T)) {
             If(condTT, exp1T, exp2T) setType tree.tpe setPos tree.pos
           } else {

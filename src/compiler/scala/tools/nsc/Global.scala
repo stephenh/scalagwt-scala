@@ -25,9 +25,9 @@ import typechecker._
 import transform._
 
 import backend.icode.{ ICodes, GenICode, Checkers }
-import backend.{ ScalaPrimitives, Platform, MSILPlatform, JavaPlatform, JavaSrcPlatform }
+import backend.{ ScalaPrimitives, Platform, MSILPlatform, JavaPlatform, JribblePlatform }
 import backend.jvm.GenJVM
-import backend.javasrc.{GenJava, RemoveNothingExpressions, NormalizeForJavaSource}
+import backend.jribble.{GenJribble, RemoveNothingExpressions, NormalizeForJribble}
 import backend.opt.{ Inliners, ClosureElimination, DeadCodeElimination }
 import backend.icode.analysis._
 
@@ -51,7 +51,7 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   
   lazy val platform: ThisPlatform =
     if (forMSIL) new { val global: Global.this.type = Global.this } with MSILPlatform
-    else if (forJavaSrc) new { val global: Global.this.type = Global.this } with JavaSrcPlatform
+    else if (forJribble) new { val global: Global.this.type = Global.this } with JribblePlatform
     else new { val global: Global.this.type = Global.this } with JavaPlatform
 
   def classPath: ClassPath[_] = platform.classPath
@@ -473,19 +473,19 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     val runsRightAfter = None
   } with RemoveNothingExpressions
 
-  // phaseName = "normjvmsrc"
-  object normalizeForJavaSource extends {
+  // phaseName = "normjribble"
+  object normalizeForJribble extends {
     val global: Global.this.type = Global.this    
     val runsAfter = List[String]("cleanup")
     val runsRightAfter = None
-  } with NormalizeForJavaSource
+  } with NormalizeForJribble
 
-  // phaseName = "genjavasrc"
-  object genJava extends {
+  // phaseName = "genjribble"
+  object genJribble extends {
     val global: Global.this.type = Global.this
-    val runsAfter = List[String]("normjvmsrc")
+    val runsAfter = List[String]("normjribble")
     val runsRightAfter = None
-  } with GenJava
+  } with GenJribble
   
   object dependencyAnalysis extends {
     val global: Global.this.type = Global.this
@@ -497,7 +497,7 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   object terminal extends {
     val global: Global.this.type = Global.this
     val phaseName = "terminal"
-    val runsAfter = List[String]("jvm","msil", "jvm-src")
+    val runsAfter = List[String]("jvm","msil", "jrrible")
     val runsRightAfter = None
   } with SubComponent {
     private var cache: Option[GlobalPhase] = None
@@ -537,10 +537,10 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
       deadCode            // optimization: get rid of dead cpde
     )
   
-  private def javaSourcePhases = 
+  private def jribblePhases = 
     List(
       removeNothingExpressions,  // move Nothing-type expressions to top level
-      normalizeForJavaSource     // many normalizations needed for emitting Java source
+      normalizeForJribble        // many normalizations needed for emitting Jribble
     )
   
   /* Add the internal compiler phases to the phases set
@@ -570,8 +570,8 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     phasesSet += mixer                      // do mixin composition
     phasesSet += cleanup                    // some platform-specific cleanups
     //TODO (grek) This should be moved to platform-specific logic
-    if (settings.target.value == "jvm-src")
-      phasesSet ++= javaSourcePhases
+    if (settings.target.value == "jribble")
+      phasesSet ++= jribblePhases
     else
       phasesSet ++= icodePhases
     phasesSet += terminal                   // The last phase in the compiler chain						       
@@ -1012,6 +1012,6 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
 
   def forJVM : Boolean = settings.target.value startsWith "jvm"
   def forMSIL: Boolean = settings.target.value == "msil"
-  def forJavaSrc: Boolean = settings.target.value == "jvm-src" 
+  def forJribble: Boolean = settings.target.value == "jribble" 
   def onlyPresentation = false
 }

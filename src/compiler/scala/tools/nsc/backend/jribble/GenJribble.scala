@@ -5,7 +5,7 @@
 // $Id$
 
 package scala.tools.nsc
-package backend.javasrc
+package backend.jribble
 
 import scala.collection.{mutable=>mut}
 import java.io.{File, FileOutputStream, PrintWriter, IOException}
@@ -15,33 +15,33 @@ import symtab.Flags._
 import scala.collection.mutable.ListBuffer
 
 
-/** Generates code in the form of Java source.
+/** Generates code in the form of Jribble source.
  *
  *  @author  Nikolay Mihaylov, Lex Spoon
  */
-abstract class GenJava 
+abstract class GenJribble 
 extends SubComponent 
-with JavaSourceAnalysis 
+with JribbleAnalysis 
 with JavaDefinitions
-with JavaSourceFormatting 
-with JavaSourceNormalization
+with JribbleFormatting 
+with JribbleNormalization
 {
   val global: Global // TODO(spoon): file a bug report about this.  The declarations
-                     // in JavaSourceFormatting and JavaSourceAnalysis seem to
+                     // in JribbleFormatting and JribbleAnalysis seem to
                      // be widening this inherited declaration.
   import global._
   import global.scalaPrimitives._
   protected lazy val typeKinds: global.icodes.type = global.icodes
   protected lazy val scalaPrimitives: global.scalaPrimitives.type = global.scalaPrimitives
   
-  val phaseName = "genjavasrc"
+  val phaseName = "genjribble"
 
   /** Create a new phase */
-  override def newPhase(p: Phase) = new JavaPhase(p)
+  override def newPhase(p: Phase) = new JribblePhase(p)
 
-  /** JVM code generation phase
+  /** Jribble code generation phase
    */
-  final class JavaPhase(prev: Phase) extends StdPhase(prev) {
+  final class JribblePhase(prev: Phase) extends StdPhase(prev) {
 
     override def run: Unit = {
       scalaPrimitives.init
@@ -53,13 +53,13 @@ with JavaSourceNormalization
 
     var pkgName: String = null
 
-    private def getJavaPrinter(clazz: Symbol): JavaPrinter = {
+    private def getJribblePrinter(clazz: Symbol): JribblePrinter = {
       val file = {
-        val suffix = if (clazz.isModuleClass) "$.java" else ".java"
+        val suffix = if (clazz.isModuleClass) "$.jribble" else ".jribble"
         getFile(clazz, suffix)
       }
       val out = new PrintWriter(new FileOutputStream(file))
-      new JavaPrinter(out)
+      new JribblePrinter(out)
     }
       
     private def gen(tree: Tree): Unit = tree match {
@@ -78,7 +78,7 @@ with JavaSourceNormalization
         try {
           {
             // print the main class
-            val printer = getJavaPrinter(clazz)
+            val printer = getJribblePrinter(clazz)
             if (pkgName != null) {
               printer.print("package ")
               printer.print(pkgName)
@@ -92,7 +92,7 @@ with JavaSourceNormalization
           if (!clazz.isNestedClass && clazz.isModuleClass) {
             // print the mirror class
             // TODO(spoon): only dump a mirror if the same-named class does not already exist
-            val printer = getJavaPrinter(clazz.companionSymbol)
+            val printer = getJribblePrinter(clazz.companionSymbol)
             dumpMirrorClass(printer)(clazz)
             printer.close()
           }
@@ -107,15 +107,15 @@ with JavaSourceNormalization
     }
 
     // TODO(spoon): change this to make a tree and then print the tree with the
-    // Java Printer.  using raw print's gives bad output and risks giving
+    // Jribble Printer.  using raw print's gives bad output and risks giving
     // incorrect output.
-    def dumpMirrorClass(printer: JavaPrinter)(clazz: Symbol): Unit = {
+    def dumpMirrorClass(printer: JribblePrinter)(clazz: Symbol): Unit = {
       import printer.{print, println, indent, undent}
       
       if (pkgName != null) {
         print("package "); print(pkgName); print(";"); println
       }
-      print("public final class "); print(javaShortName(clazz.companionSymbol)) 
+      print("public final class "); print(jribbleShortName(clazz.companionSymbol)) 
       print("{"); indent; println
       for (val m <- clazz.tpe.nonPrivateMembers; // TODO(spoon) -- non-private, or public?
            m.owner != definitions.ObjectClass && !m.hasFlag(PROTECTED) &&
@@ -131,7 +131,7 @@ with JavaSourceNormalization
         print(") { ")
         if (!isUnit(m.tpe.resultType))
           print("return ") 
-        print(javaName(clazz)); print("."); print(nme.MODULE_INSTANCE_FIELD)
+        print(jribbleName(clazz)); print("."); print(nme.MODULE_INSTANCE_FIELD)
         print("."); print(m.name); print("(") 
         for (val i <- 0 until paramTypes.length) {
           if (i > 0) print(", ");
@@ -145,7 +145,7 @@ with JavaSourceNormalization
 
   }
 
-  private final class JavaPrinter(out: PrintWriter) extends TreePrinter(out) {
+  private final class JribblePrinter(out: PrintWriter) extends TreePrinter(out) {
     /**
      * Symbols in scope that are for a while loop.  Apply's to
      * them should be printed as continue's.
@@ -186,7 +186,7 @@ with JavaSourceNormalization
         //printAttributes(tree)
         //printFlags(mods.flags)
         printFlags(tree.symbol)
-        print((if (mods hasFlag TRAIT) "interface " else "class ") + javaShortName(tree.symbol))
+        print((if (mods hasFlag TRAIT) "interface " else "class ") + jribbleShortName(tree.symbol))
         print(" extends ")
         print(superclass.tpe)
         if (!ifaces.isEmpty) {
@@ -201,8 +201,8 @@ with JavaSourceNormalization
         print(" {"); indent;
         if (tree.symbol.isModuleClass) {
           println
-          print("public static " + javaShortName(tree.symbol) + " " + 
-                    nme.MODULE_INSTANCE_FIELD + " = new " + javaShortName(tree.symbol) + "();")
+          print("public static " + jribbleShortName(tree.symbol) + " " + 
+                    nme.MODULE_INSTANCE_FIELD + " = new " + jribbleShortName(tree.symbol) + "();")
         }
         for(member <- body) {
           println; println;
@@ -227,7 +227,7 @@ with JavaSourceNormalization
         //printAttributes(tree)
         //printFlags(mods.flags)
         printFlags(tree.symbol)
-        if (isConstructor(tree)) print(javaShortName(tree.symbol.owner))
+        if (isConstructor(tree)) print(jribbleShortName(tree.symbol.owner))
         else {
           print(tp.tpe)
           print(" ")
@@ -273,12 +273,12 @@ with JavaSourceNormalization
         val prim = getPrimitive(fun.symbol) 
         prim match {
           case POS | NEG | NOT | ZNOT =>
-            print(javaPrimName(prim)); print("("); print(receiver); print(")") 
+            print(jribblePrimName(prim)); print("("); print(receiver); print(")") 
           case ADD | SUB | MUL | DIV | MOD | OR | XOR | AND | ID |
                LSL | LSR | ASR |EQ | NE | LT | LE | GT | GE | ZOR | ZAND |
                CONCAT =>
             // TODO(spoon): this does not seem to parenthesize for precedence handling
-            print(receiver); print(" "); print(javaPrimName(prim)); print(" "); print(args.head)
+            print(receiver); print(" "); print(jribblePrimName(prim)); print(" "); print(args.head)
           case APPLY => print(receiver); print("["); print(args.head); print("]")
           case UPDATE =>
             print(receiver); print("["); print(args.head); print("] = ") 
@@ -306,7 +306,7 @@ with JavaSourceNormalization
         print(")")
 
       case tree@Apply(fun, args) if tree.symbol != NoSymbol && tree.symbol.isStaticMember =>
-        print(javaName(tree.symbol.owner))
+        print(jribbleName(tree.symbol.owner))
         print(".")
         print(tree.symbol.name)
         print("(")
@@ -392,7 +392,7 @@ with JavaSourceNormalization
 
     /** load a top-level module */
     def printLoadModule(sym: Symbol) {
-      print(javaName(sym)); print("$."); print(nme.MODULE_INSTANCE_FIELD)
+      print(jribbleName(sym)); print("$."); print(nme.MODULE_INSTANCE_FIELD)
     }
     
     override def printParam(tree: Tree): Unit = tree match {
@@ -422,7 +422,7 @@ with JavaSourceNormalization
     }
     
     def print(tpe: Type) {
-      print(javaName(tpe))
+      print(jribbleName(tpe))
     }
     
     def needsSemi(exp: Tree): Boolean = exp match {
