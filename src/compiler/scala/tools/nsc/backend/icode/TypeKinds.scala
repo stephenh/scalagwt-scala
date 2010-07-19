@@ -25,9 +25,14 @@ package icode
 */
 
 import scala.collection.mutable.{ Map, HashMap }
+import symtab.SymbolTable
 
-trait TypeKinds { self: ICodes =>
+trait TypeKinds {
+  val global: SymbolTable { def abort(msg: String): Nothing }
   import global._
+  
+  // TODO(spoon): put in better location
+  lazy val AnyRefReference: TypeKind = REFERENCE(global.definitions.ObjectClass)
   import definitions.{ ArrayClass, AnyRefClass, ObjectClass, NullClass, NothingClass }
   
   /** A map from scala primitive Types to ICode TypeKinds */

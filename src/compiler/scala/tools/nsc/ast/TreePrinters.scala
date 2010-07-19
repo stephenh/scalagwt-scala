@@ -22,6 +22,8 @@ trait TreePrinters { trees: SymbolTable =>
     protected val indentStep = 2
     protected var indentString = "                                        " // 40
 
+    def close() = out.close()
+    
     def flush() = out.flush()
 
     def indent = indentMargin += indentStep

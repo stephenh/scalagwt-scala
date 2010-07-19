@@ -1791,7 +1791,11 @@ abstract class GenJVM extends SubComponent {
 
       var jf: Int = 0
       val f = sym.flags
-      jf = jf | (if (sym hasFlag Flags.SYNTHETIC) ACC_SYNTHETIC else 0)
+      /*
+       * The Java-level SYNTHETIC flag is disabled because it
+       * causes trouble for the jvm-src target.
+       */
+      //jf = jf | (if (sym hasFlag Flags.SYNTHETIC) ACC_SYNTHETIC else 0)
 /*      jf = jf | (if (sym hasFlag Flags.PRIVATE) ACC_PRIVATE else 
                   if (sym hasFlag Flags.PROTECTED) ACC_PROTECTED else ACC_PUBLIC)
 */

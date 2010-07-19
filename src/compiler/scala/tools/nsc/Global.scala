@@ -25,8 +25,8 @@ import typechecker._
 import transform._
 
 import backend.icode.{ ICodes, GenICode, Checkers }
-import backend.{ ScalaPrimitives, Platform, MSILPlatform, JavaPlatform }
-import backend.jvm.GenJVM
+import backend.{ ScalaPrimitives, Platform, MSILPlatform, JavaPlatform, JavaSrcPlatform }
+import backend.jvm.{GenJVM, GenJava, RemoveNothingExpressions, NormalizeForJavaSource}
 import backend.opt.{ Inliners, ClosureElimination, DeadCodeElimination }
 import backend.icode.analysis._
 
@@ -50,6 +50,7 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   
   lazy val platform: ThisPlatform =
     if (forMSIL) new { val global: Global.this.type = Global.this } with MSILPlatform
+    else if (forJavaSrc) new { val global: Global.this.type = Global.this } with JavaSrcPlatform
     else new { val global: Global.this.type = Global.this } with JavaPlatform
 
   def classPath: ClassPath[_] = platform.classPath
@@ -462,6 +463,27 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     val runsRightAfter = None
   } with GenJVM
 
+  // phaseNAme = "nothingexps"
+  object removeNothingExpressions extends RemoveNothingExpressions {
+    val global: Global.this.type = Global.this
+    val runsAfter = List[String]("cleanup")
+    val runsRightAfter = None
+  }
+
+  // phaseName = "normjvmsrc"
+  object normalizeForJavaSource extends NormalizeForJavaSource {
+    val global: Global.this.type = Global.this    
+    val runsAfter = List[String]("cleanup")
+    val runsRightAfter = None
+  }
+
+  // phaseName = "genjavasrc"
+  object genJava extends GenJava {
+    val global: Global.this.type = Global.this
+    val runsAfter = List[String]("normjvmsrc")
+    val runsRightAfter = None
+  }
+  
   object dependencyAnalysis extends {
     val global: Global.this.type = Global.this
     val runsAfter = List("jvm")
@@ -472,7 +494,7 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   object terminal extends {
     val global: Global.this.type = Global.this
     val phaseName = "terminal"
-    val runsAfter = List[String]("jvm","msil")
+    val runsAfter = List[String]("jvm","msil", "jvm-src")
     val runsRightAfter = None
   } with SubComponent {
     private var cache: Option[GlobalPhase] = None
@@ -503,7 +525,21 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
 
   object typer extends analyzer.Typer(
     analyzer.NoContext.make(EmptyTree, Global.this.definitions.RootClass, new Scope))
-
+  
+  private def icodePhases =
+    List(
+      genicode,        // generate portable intermediate code
+      inliner,         // optimization: do inlining
+      closureElimination, // optimization: get rid of uncalled closures
+      deadCode            // optimization: get rid of dead cpde
+    )
+  
+  private def javaSourcePhases = 
+    List(
+      removeNothingExpressions,  // move Nothing-type expressions to top level
+      normalizeForJavaSource     // many normalizations needed for emitting Java source
+    )
+  
   /* Add the internal compiler phases to the phases set
    */
   protected def computeInternalPhases() {
@@ -530,11 +566,12 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     phasesSet += constructors               // move field definitions into constructors
     phasesSet += mixer                      // do mixin composition
     phasesSet += cleanup                    // some platform-specific cleanups
-    phasesSet += genicode                   // generate portable intermediate code
-    phasesSet += inliner                    // optimization: do inlining
-    phasesSet += closureElimination         // optimization: get rid of uncalled closures
-    phasesSet += deadCode                   // optimization: get rid of dead cpde
-    phasesSet += terminal                   // The last phase in the compiler chain
+    //TODO (grek) This should be moved to platform-specific logic
+    if (settings.target.value == "jvm-src")
+      phasesSet ++= javaSourcePhases
+    else
+      phasesSet ++= icodePhases
+    phasesSet += terminal                   // The last phase in the compiler chain						       
   }
   
   protected def computePlatformPhases() = platform.platformPhases foreach (phasesSet += _)
@@ -732,7 +769,7 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
         phase = globalPhase
         globalPhase.run
         if (settings.Xprint contains globalPhase.name)
-          if (settings.writeICode.value && globalPhase.id >= icodePhase.id) writeICode()
+          if (settings.writeICode.value && icodePhase != NoPhase  &&  globalPhase.id >= icodePhase.id) writeICode()
           else if (settings.Xshowtrees.value) nodePrinters.printAll() 
           else printAllUnits()
         if (settings.printLate.value && globalPhase.name == "cleanup")
@@ -972,5 +1009,6 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
 
   def forJVM : Boolean = settings.target.value startsWith "jvm"
   def forMSIL: Boolean = settings.target.value == "msil"
+  def forJavaSrc: Boolean = settings.target.value == "jvm-src" 
   def onlyPresentation = false
 }

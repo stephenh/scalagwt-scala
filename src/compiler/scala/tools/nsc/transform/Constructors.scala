@@ -118,7 +118,7 @@ abstract class Constructors extends Transform with ast.TreeDSL {
           new ChangeOwnerTraverser(oldowner, constr.symbol)(tree))
 
       // Should tree be moved in front of super constructor call?
-      def canBeMoved(tree: Tree) = tree match {
+      def canBeMoved(tree: Tree) = (settings.target.value != "jvm-src") && (tree match {
         //todo: eliminate thisRefSeen
         case ValDef(mods, _, _, _) => 
           if (settings.Xwarninit.value)
@@ -129,7 +129,7 @@ abstract class Constructors extends Transform with ast.TreeDSL {
               unit.warning(tree.pos, "the semantics of this definition has changed;\nthe initialization is no longer be executed before the superclass is called")
           (mods hasFlag PRESUPER | PARAMACCESSOR)// || !thisRefSeen && (!settings.future.value && !settings.checkInit.value)
         case _ => false
-      }
+      })
 
       // Create an assignment to class field `to' with rhs `from'
       def mkAssign(to: Symbol, from: Tree): Tree =
