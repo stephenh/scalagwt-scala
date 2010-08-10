@@ -461,6 +461,14 @@ QUICK BUILD (QUICK)
     </uptodate>
   </target>
 
+  <target name="quick.pre-lib-jribble" depends="quick.start">
+    <uptodate property="quick.lib-jribble.available" targetfile="${build-quick.dir}/library-jribble.complete">
+      <srcfiles dir="${src.dir}">
+        <include name="library/**"/>
+      </srcfiles>
+    </uptodate>
+  </target>
+
   <target name="quick.lib" depends="quick.pre-lib" unless="quick.lib.available">
     <stopwatch name="quick.lib.timer"/>
     <mkdir dir="${build-quick.dir}/classes/library"/>
@@ -545,6 +553,33 @@ QUICK BUILD (QUICK)
     <stopwatch name="quick.lib.timer" action="total"/>
   </target>
   
+  <target name="quick.lib-jribble" depends="quick.pre-lib-jribble" unless="quick.lib-jribble.available">
+    <stopwatch name="quick.lib-jribble.timer"/>
+    <mkdir dir="${build-quick.dir}/jribble/library"/>
+    <scalacfork
+      destdir="${build-quick.dir}/jribble/library"
+      compilerpathref="locker.classpath"
+      srcpath="${src.dir}/library"
+      params="${scalac.args.quick}"
+      srcdir="${src.dir}/library"
+      target="jribble"
+      jvmargs="${scalacfork.jvmargs}">
+      <include name="scala/ScalaObject.scala"/>
+      <compilationpath refid="quick.compilation.path"/>
+    </scalacfork>
+    <propertyfile file="${build-quick.dir}/jribble/library/library.properties">
+      <entry key="version.number" value="${version.number}"/>
+      <entry key="copyright.string" value="${copyright.string}"/>
+    </propertyfile>
+    <copy todir="${build-quick.dir}/jribble/library">
+      <fileset dir="${src.dir}/library">
+        <include name="**/*.xml"/>
+      </fileset>
+    </copy>
+    <touch file="${build-quick.dir}/library-jribble.complete" verbose="no"/>
+    <stopwatch name="quick.lib-jribble.timer" action="total"/>
+  </target>
+
   <target name="quick.newlibs" depends="quick.lib" if="libs.outdated">
     <antcall target="libs.done" inheritRefs="true"/>
     <property name="fjbg.jar" value="${build-libs.dir}/fjbg.jar"/>
@@ -787,7 +822,7 @@ QUICK BUILD (QUICK)
     <touch file="${build-quick.dir}/bin.complete" verbose="no"/>
   </target>
 
-  <target name="quick.done" depends="quick.bin">
+  <target name="quick.done" depends="quick.bin, quick.lib-jribble">
     <path id="quick.classpath">
       <pathelement location="${build-quick.dir}/classes/library"/>
       <pathelement location="${build-quick.dir}/classes/compiler"/>
@@ -836,6 +871,20 @@ PACKED QUICK BUILD (PACK)
       <fileset dir="${src.dir}/swing">
         <include name="scala/swing/test/images/**"/>
       </fileset>
+    </jar>
+  </target>
+  
+  <target name="pack.pre-lib-jribble" depends="pack.start">
+    <uptodate
+      property="pack.lib-jribble.available"
+      targetfile="${build-pack.dir}/lib/scala-library-jribble.jar"
+      srcfile="${build-quick.dir}/library-jribble.complete"/>
+  </target>
+
+  <target name="pack.lib-jribble" depends="pack.pre-lib-jribble" unless="pack.lib-jribble.available">
+    <mkdir dir="${build-pack.dir}/lib"/>
+    <jar destfile="${build-pack.dir}/lib/scala-library-jribble.jar">
+      <fileset dir="${build-quick.dir}/jribble/library"/>
     </jar>
   </target>
 
@@ -949,7 +998,7 @@ PACKED QUICK BUILD (PACK)
     <touch file="${build-pack.dir}/bin.complete" verbose="no"/>
   </target>
   
-  <target name="pack.done" depends="pack.bin">
+  <target name="pack.done" depends="pack.bin, pack.lib-jribble">
     <path id="pack.classpath">
       <pathelement location="${build-pack.dir}/lib/scala-library.jar"/>
       <pathelement location="${build-pack.dir}/lib/scala-compiler.jar"/>
