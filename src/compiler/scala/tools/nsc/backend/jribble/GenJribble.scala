@@ -323,6 +323,8 @@ with JribbleNormalization
         printLoadModule(tree.symbol) // TODO(spoon): handle other loadModule cases from GenIcodes
         
       case This(_) => print("this")
+
+      case Super(_, _) => print("super")
       
       case If(cond, exp1: Block, exp2) =>
         // If statement
