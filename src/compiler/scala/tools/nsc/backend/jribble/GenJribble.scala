@@ -288,8 +288,6 @@ with JribbleNormalization
           case UPDATE =>
             print(receiver); print("["); print(args.head); print("] = ") 
             print(args.tail.head); print("")
-          case SYNCHRONIZED => print("synchronized ("); print(receiver); print(") {") 
-            indent; println; print(args.head); undent; println; print("}") 
           case prim => print("Unhandled primitive ("+prim+") for "+tree)
         }
       }
