@@ -221,7 +221,7 @@ with JribbleNormalization
         printFlags(tree.symbol)
         print(tp.tpe)
         print(" ")
-        print(tree.symbol.simpleName) 
+        print(tree.symbol.simpleName)
         if (!rhs.isEmpty) { print(" = "); print(rhs) }
         print(";")
 
@@ -330,7 +330,7 @@ with JribbleNormalization
       case Apply(fun @ Select(_: New, nme.CONSTRUCTOR), args) if tree.symbol.isConstructor =>
         print("new ");
         print(jribbleConstructorSignature(fun.symbol))
-        printParams(args) 
+        printParams(args)
 
       case tree@Apply(Select(_: Super, nme.CONSTRUCTOR), args) if tree.symbol.isConstructor =>
         print(jribbleSuperConstructorSignature(tree.symbol))
@@ -519,7 +519,7 @@ with JribbleNormalization
     override def printParam(tree: Tree): Unit = tree match {
       case ValDef(mods, name, tp, rhs) =>
         //printAttributes(tree)
-        print(tp.tpe); print(" "); print(symName(tree, name)) 
+        print(tp.tpe); print(" "); print(symName(tree, name))
     }
 
     override def printValueParams(ts: List[ValDef]) {
