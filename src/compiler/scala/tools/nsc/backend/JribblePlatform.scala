@@ -19,8 +19,11 @@ trait JribblePlatform extends Platform[AbstractFile] {
   def rootLoader      = new loaders.JavaPackageLoader(classPath)
 
   def platformPhases = List(
-    flatten,    // get rid of inner classes
-    genJribble      // generate .jribble files
+    flatten,                   // get rid of inner classes
+    removeNothingExpressions,  // move Nothing-type expressions to top level
+    removeForwardJumps,        // translate forward jumps into method calls
+    normalizeForJribble,       // many normalizations needed for emitting Jribble
+    genJribble                 // generate .jribble files
   )
 
   lazy val externalEquals = getMember(BoxesRunTimeClass, nme.equals_)

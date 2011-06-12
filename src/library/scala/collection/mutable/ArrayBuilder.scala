@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2003-2010, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2003-2011, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -20,8 +20,7 @@ import scala.reflect.ClassManifest
  *  
  *  @tparam T    the type of the elements for the builder.
  */
-@serializable
-abstract class ArrayBuilder[T] extends Builder[T, Array[T]]
+abstract class ArrayBuilder[T] extends Builder[T, Array[T]] with Serializable
 
 /** A companion object for array builders.
  *  
@@ -63,9 +62,8 @@ object ArrayBuilder {
     }
 
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
       } 
@@ -128,14 +126,13 @@ object ArrayBuilder {
     }
 
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
+      } 
     } 
-
+    
     def +=(elem: Byte): this.type = {
       ensureSize(size + 1)
       elems(size) = elem
@@ -191,14 +188,13 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
+      } 
     } 
 
     def +=(elem: Short): this.type = {
@@ -256,16 +252,15 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
-    } 
-
+      } 
+    }
+    
     def +=(elem: Char): this.type = {
       ensureSize(size + 1)
       elems(size) = elem
@@ -321,16 +316,15 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
-    } 
-
+      } 
+    }
+    
     def +=(elem: Int): this.type = {
       ensureSize(size + 1)
       elems(size) = elem
@@ -386,16 +380,15 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
-    } 
-
+      } 
+    }
+    
     def +=(elem: Long): this.type = {
       ensureSize(size + 1)
       elems(size) = elem
@@ -451,16 +444,15 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
-    } 
-
+      } 
+    }
+    
     def +=(elem: Float): this.type = {
       ensureSize(size + 1)
       elems(size) = elem
@@ -516,16 +508,15 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
-    } 
-
+      } 
+    }
+    
     def +=(elem: Double): this.type = {
       ensureSize(size + 1)
       elems(size) = elem
@@ -581,16 +572,15 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
-    } 
-
+      } 
+    }
+    
     def +=(elem: Boolean): this.type = {
       ensureSize(size + 1)
       elems(size) = elem
@@ -646,16 +636,15 @@ object ArrayBuilder {
     override def sizeHint(size: Int) {
       if (capacity < size) resize(size)
     }
-
+    
     private def ensureSize(size: Int) {
-      if (capacity == 0) resize(16)
-      if (capacity < size) {
-        var newsize = capacity * 2
+      if (capacity < size || capacity == 0) {
+        var newsize = if (capacity == 0) 16 else capacity * 2
         while (newsize < size) newsize *= 2
         resize(newsize)
-      }
-    } 
-
+      } 
+    }
+    
     def +=(elem: Unit): this.type = {
       ensureSize(size + 1)
       elems(size) = elem

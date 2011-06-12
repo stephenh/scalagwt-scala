@@ -16,7 +16,7 @@ import scala.collection.mutable
  * Analyses that are used by {@link GenJribble}.
  */
 trait JribbleAnalysis {
-  val global: SymbolTable
+  val global: Global
   import global._
   
   private lazy val remoteClass = definitions.getClass("scala.remote")
