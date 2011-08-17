@@ -1,6 +1,5 @@
 <!-- GWT's module descriptor for ScalaLibrary -->
 <module>
-
+  <inherits name="com.google.gwt.user.User"/>
   <source path="scala" />
-  
 </module>
