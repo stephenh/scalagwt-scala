@@ -26,8 +26,10 @@ trait Plugins {
   protected def loadRoughPluginsList(): List[Plugin] = {
     val jars = settings.plugin.value map Path.apply
     val dirs = (settings.pluginsDir.value split File.pathSeparator).toList map Path.apply
-    val classes = Plugin.loadAllFrom(jars, dirs, settings.disable.value)
-    
+    val jarClasses = Plugin.loadAllFrom(jars, dirs, settings.disable.value)
+    val otherClasses = settings.pluginClasses.value map Class.forName
+    val classes = jarClasses ++ otherClasses
+
     // Lach plugin must only be instantiated once. A common pattern
     // is to register annotation checkers during object construction, so
     // creating multiple plugin instances will leave behind stale checkers.
