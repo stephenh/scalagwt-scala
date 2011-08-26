@@ -125,7 +125,7 @@ text-decoration: none;
   padding: 8px;
 }
 
-#signature > span.kind {
+#signature > span.modifier_kind {
   display: inline;
   float: left;
   text-align: left;
@@ -227,7 +227,7 @@ dl.attributes > dd {
   height: 18px;
 }
 
-#template > div.parent > h3 {
+#inheritedMembers > div.parent > h3 {
   background-color: #dadada;
 /*  border:1px solid #6f6f6f;
   border-left:0;
@@ -243,7 +243,7 @@ dl.attributes > dd {
   font-size: 12pt;
 }
 
-#template > div.parent > h3 * {
+#inheritedMembers > div.parent > h3 * {
   color: white;
 }
 
@@ -288,10 +288,10 @@ div.members > ol > li:last-child {
   text-shadow: white 0px 1px 0px;
 }
 
-.signature .kind {
+.signature .modifier_kind {
   position: absolute;
   text-align: right;
-  width: 8em;
+  width: 14em;
 }
 
 .signature > a > .symbol > .name {
@@ -308,7 +308,7 @@ div.members > ol > li:last-child {
 
 .signature > .symbol {
   display: block;
-  padding-left: 8.7em;
+  padding-left: 14.7em;
 }
 
 .signature .name {
@@ -477,7 +477,7 @@ div.members > ol > li:last-child {
 
 p.comment {
   display: block;
-  margin-left: 8.7em;
+  margin-left: 14.7em;
   margin-top: 5px;
 }
 
@@ -499,11 +499,11 @@ div.fullcomment {
 #template div.fullcommenttop,
 #template div.fullcomment {
   display:none;
-  margin: 5px 0 0 8.7em;
+  margin: 5px 0 0 14.7em;
 }
 
 #template .shortcomment {
-  margin: 5px 0 0 8.7em;
+  margin: 5px 0 0 14.7em;
   padding: 0;
 }
 

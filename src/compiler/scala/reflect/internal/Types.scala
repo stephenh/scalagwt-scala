@@ -65,7 +65,6 @@ import util.Statistics._
     // inst is the instantiation and constr is a list of bounds.
   case DeBruijnIndex(level, index)
     // for dependent method types: a type referring to a method parameter.
-    // Not presently used, it seems.
 */
 
 trait Types extends api.Types { self: SymbolTable =>
@@ -116,7 +115,7 @@ trait Types extends api.Types { self: SymbolTable =>
     }
 
     private[Types] def record(tv: TypeVar) = {
-      log ::= (tv, tv.constr.cloneInternal)
+      log ::= ((tv, tv.constr.cloneInternal))
     }
     private[scala] def clear() {
       if (settings.debug.value)
@@ -826,7 +825,8 @@ trait Types extends api.Types { self: SymbolTable =>
     /** The string representation of this type, with singletypes explained. */
     def toLongString = {
       val str = toString
-      if (str endsWith ".type") str + " (with underlying type " + widen + ")"
+      if (str == "type") widen.toString
+      else if (str endsWith ".type") str + " (with underlying type " + widen + ")"
       else str
     }
 
@@ -2733,7 +2733,24 @@ A type's typeSymbol should never be inspected directly.
   case class NamedType(name: Name, tp: Type) extends Type {
     override def safeToString: String = name.toString +": "+ tp
   }
-
+  
+  /** A De Bruijn index referring to a previous type argument. Only used 
+   *  as a serialization format.
+   */
+  case class DeBruijnIndex(level: Int, idx: Int, args: List[Type]) extends Type {
+    override def safeToString: String = "De Bruijn index("+level+","+idx+")"
+  }
+  
+  /** A binder defining data associated with De Bruijn indices. Only used 
+   *  as a serialization format.
+   */
+  case class DeBruijnBinder(pnames: List[Name], ptypes: List[Type], restpe: Type) extends Type {
+    override def safeToString = {
+      val kind = if (pnames.head.isTypeName) "poly" else "method"
+      "De Bruijn "+kind+"("+(pnames mkString ",")+";"+(ptypes mkString ",")+";"+restpe+")"
+    }
+  }
+  
   /** A class representing an as-yet unevaluated type.
    */
   abstract class LazyType extends Type {
@@ -3101,6 +3118,50 @@ A type's typeSymbol should never be inspected directly.
         if (etaExpandKeepsStar) tp else mapOver(tp)
     }
   }
+  
+  object toDeBruijn extends TypeMap {
+    private var paramStack: List[List[Symbol]] = Nil
+    def mkDebruijnBinder(params: List[Symbol], restpe: Type) = {
+      paramStack = params :: paramStack
+      try {
+        DeBruijnBinder(params map (_.name), params map (p => this(p.info)), this(restpe))
+      } finally paramStack = paramStack.tail
+    }
+    def apply(tp: Type): Type = tp match {
+      case PolyType(tparams, restpe) =>
+        mkDebruijnBinder(tparams, restpe)
+      case MethodType(params, restpe) =>
+        mkDebruijnBinder(params, restpe) 
+      case TypeRef(NoPrefix, sym, args) =>
+        val level = paramStack indexWhere (_ contains sym)
+        if (level < 0) mapOver(tp)
+        else DeBruijnIndex(level, paramStack(level) indexOf sym, args mapConserve this)
+      case _ =>
+        mapOver(tp)
+    }
+  }
+  
+  def fromDeBruijn(owner: Symbol) = new TypeMap {
+    private var paramStack: List[List[Symbol]] = Nil
+    def apply(tp: Type): Type = tp match {
+      case DeBruijnBinder(pnames, ptypes, restpe) =>
+        val isType = pnames.head.isTypeName
+        val newParams = for (name <- pnames) yield
+          if (isType) owner.newTypeParameter(NoPosition, name.toTypeName) 
+          else owner.newValueParameter(NoPosition, name)
+        paramStack = newParams :: paramStack
+        try {
+          (newParams, ptypes).zipped foreach ((p, t) => p setInfo this(t))
+          val restpe1 = this(restpe)
+          if (isType) PolyType(newParams, restpe1)
+          else MethodType(newParams, restpe1)
+        } finally paramStack = paramStack.tail 
+      case DeBruijnIndex(level, idx, args) =>
+        TypeRef(NoPrefix, paramStack(level)(idx), args map this)
+      case _ =>
+        mapOver(tp)
+    }
+  }
 
 // Hash consing --------------------------------------------------------------
 
@@ -3314,6 +3375,10 @@ A type's typeSymbol should never be inspected directly.
         if ((annots1 eq annots) && (atp1 eq atp)) tp
         else if (annots1.isEmpty) atp1
         else AnnotatedType(annots1, atp1, selfsym)
+      case DeBruijnIndex(shift, idx, args) =>
+        val args1 = args mapConserve this
+        if (args1 eq args) tp
+        else DeBruijnIndex(shift, idx, args1)
 /*
       case ErrorType => tp
       case WildcardType => tp
@@ -3483,6 +3548,7 @@ A type's typeSymbol should never be inspected directly.
    */
   object rawToExistential extends TypeMap {
     private var expanded = immutable.Set[Symbol]()
+    private var generated = immutable.Set[Type]()
     def apply(tp: Type): Type = tp match {
       case TypeRef(pre, sym, List()) if isRawIfWithoutArgs(sym) =>
         if (expanded contains sym) AnyRefClass.tpe
@@ -3493,8 +3559,10 @@ A type's typeSymbol should never be inspected directly.
         } finally {
           expanded -= sym
         }
-      case ExistentialType(_, _) => // stop to avoid infinite expansions
-        tp
+      case ExistentialType(_, _) if !(generated contains tp) => // to avoid infinite expansions. todo: not sure whether this is needed
+        val result = mapOver(tp)
+        generated += result
+        result
       case _ =>
         mapOver(tp)
     }
@@ -5653,7 +5721,7 @@ A type's typeSymbol should never be inspected directly.
               try {
                 globalGlbDepth += 1
                 val dss = ts flatMap refinedToDecls
-                for (ds <- dss; sym <- ds.iterator) 
+                for (ds <- dss; sym <- ds.iterator)
                   if (globalGlbDepth < globalGlbLimit && !(glbThisType specializes sym))
                     try {
                       addMember(glbThisType, glbRefined, glbsym(sym))
