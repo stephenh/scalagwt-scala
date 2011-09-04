@@ -211,9 +211,6 @@ INITIALISATION
 
     <property name="scalac.args.all" value="${scalac.args} ${scalac.args.optimise}"/>
     <property name="scalac.args.quick" value="${scalac.args.all} ${scalac.args.quickonly}"/>
-	<!-- Define gwt.classpath in build.properties file, it must include gwt-dev.jar, gwt-user.jar, gwt-lang.jar and gwt-java_lang.jar
-	     Last two jars has to be built as described here: https://groups.google.com/d/topic/scalagwt/AUp4r9Qu9Zg/discussion -->
-	<property name="scalac.args.jribble" value="${scalac.args.quick} -javabootclasspath ${gwt.classpath} -g:notailcalls -Xplugin:${basedir}/build/quick/misc/scala-devel/plugins/factorymanifests.jar -Yjribble-text"/>
     <!-- Setting-up Ant contrib tasks -->
     <taskdef resource="net/sf/antcontrib/antlib.xml" classpath="${lib.dir}/ant/ant-contrib.jar"/>
     <!-- This is the start time for the distribution -->
@@ -566,16 +563,16 @@ QUICK BUILD (QUICK)
   <target name="quick.lib-jribble" depends="quick.pre-lib-jribble" unless="quick.lib-jribble.available">
     <stopwatch name="quick.lib-jribble.timer"/>
     <!-- jdk2ikvm/library contains the .scala files we want. -->
-    <!-- Precompile .scala files into .gwtwar -->
+    <!-- Precompile .scala files into ScalaLibrary.gwtar -->
     <copy file="src/library/ScalaLibrary.gwt.xml" todir="${build-quick.dir}/jdk2ikvm/library"/>
     <java classname="com.google.gwt.dev.CompileModule" fork="yes" failonerror="true">
       <classpath>
         <path refid="quick.classpath"/>
         <pathelement location="${build-quick.dir}/jdk2ikvm/library"/>
         <pathelement location="${build-quick.dir}/misc/scala-devel/plugins/factorymanifests.jar"/>
-        <fileset dir="/home/stephen/other/google-web-toolkit/build/lib" includes="gwt-dev.jar,gwt-user.jar"/>
-        <pathelement location="/home/stephen/other/gwt-tools/lib/javax/validation/validation-api-1.0.0.GA.jar" />
-        <pathelement location="/home/stephen/other/gwt-tools/lib/javax/validation/validation-api-1.0.0.GA-sources.jar" />
+        <fileset dir="${gwt.root}/build/lib" includes="gwt-dev.jar,gwt-user.jar,gwt-scala.jar"/>
+        <pathelement location="${gwt.tools}/lib/javax/validation/validation-api-1.0.0.GA.jar" />
+        <pathelement location="${gwt.tools}/lib/javax/validation/validation-api-1.0.0.GA-sources.jar" />
       </classpath>
       <arg value="-strict"/>
       <arg value="-out" />
@@ -998,7 +995,7 @@ QUICK BUILD (QUICK)
     <touch file="${build-quick.dir}/bin.complete" verbose="no"/>
   </target>
 
-  <target name="quick.done" depends="quick.bin, quick.lib-jribble">
+  <target name="quick.done" depends="quick.bin">
     <path id="quick.classpath">
       <pathelement location="${build-quick.dir}/classes/library"/>
       <pathelement location="${build-quick.dir}/classes/compiler"/>
@@ -1054,7 +1051,7 @@ PACKED QUICK BUILD (PACK)
       srcfile="${build-quick.dir}/library-gwt.complete"/>
   </target>
 
-  <target name="pack.lib-jribble" depends="pack.pre-lib-jribble" unless="pack.lib-jribble.available">
+  <target name="pack.lib-jribble" depends="quick.lib-jribble,pack.pre-lib-jribble" unless="pack.lib-jribble.available">
     <mkdir dir="${build-pack.dir}/lib"/>
 <<<<<<< HEAD
     <jar destfile="${build-pack.dir}/lib/scala-library-gwt.jar">
@@ -1065,6 +1062,9 @@ PACKED QUICK BUILD (PACK)
 >>>>>>> Spike using embedding to produce ScalaLibrary.gwtar.
     </jar>
   </target>
+
+  <!-- Invoke lib-jribble manually as we use gwt-scala + CompileModule -->
+  <target name="lib-jribble" depends="pack.lib-jribble" />
 
   <target name="pack.pre-comp" depends="pack.lib">
     <uptodate
@@ -1189,7 +1189,7 @@ PACKED QUICK BUILD (PACK)
     <touch file="${build-pack.dir}/bin.complete" verbose="no"/>
   </target>
   
-  <target name="pack.done" depends="pack.bin, pack.lib-jribble">
+  <target name="pack.done" depends="pack.bin">
     <path id="pack.classpath">
       <pathelement location="${build-pack.dir}/lib/scala-library.jar"/>
       <pathelement location="${build-pack.dir}/lib/scala-compiler.jar"/>
