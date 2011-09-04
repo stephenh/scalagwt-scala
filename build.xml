@@ -570,7 +570,8 @@ QUICK BUILD (QUICK)
         <path refid="quick.classpath"/>
         <pathelement location="${build-quick.dir}/jdk2ikvm/library"/>
         <pathelement location="${build-quick.dir}/misc/scala-devel/plugins/factorymanifests.jar"/>
-        <fileset dir="${gwt.root}/build/lib" includes="gwt-dev.jar,gwt-user.jar,gwt-scala.jar"/>
+        <fileset dir="${gwt.root}/build/lib" includes="gwt-dev.jar,gwt-user.jar,gwt-scala.jar,gwt-jribble.jar"/>
+        <fileset dir="${gwt.root}/scalagwt-lib" includes="jribble*.jar"/>
         <pathelement location="${gwt.tools}/lib/javax/validation/validation-api-1.0.0.GA.jar" />
         <pathelement location="${gwt.tools}/lib/javax/validation/validation-api-1.0.0.GA-sources.jar" />
       </classpath>
