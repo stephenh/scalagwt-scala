@@ -6,3 +6,6 @@
 /src/intellij
 /test/files/jribble/*.log
 /test/files/jribble/*.obj
+jribbleCache
+build.properties
+.scala_dependencies
