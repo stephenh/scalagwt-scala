@@ -327,8 +327,6 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
     }
   }
 
-  def getInterpreterClassLoader() = classLoader
-
   // Set the current Java "context" class loader to this interpreter's class loader
   def setContextClassLoader() = classLoader.setAsContext()
 

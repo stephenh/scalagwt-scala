@@ -44,22 +44,6 @@ abstract class GenJVM extends SubComponent with GenJVMUtil with GenAndroid with 
   /** Create a new phase */
   override def newPhase(p: Phase): Phase = new JvmPhase(p)
 
-  private def outputDirectory(sym: Symbol): AbstractFile = (
-    settings.outputDirs.outputDirFor {
-      atPhase(currentRun.flattenPhase.prev)(sym.sourceFile)
-    }
-  )
-  private def getFile(base: AbstractFile, cls: JClass, suffix: String): AbstractFile = {
-    var dir = base
-    val pathParts = cls.getName().split("[./]").toList
-    for (part <- pathParts.init) {
-      dir = dir.subdirectoryNamed(part)
-    }
-    dir.fileNamed(pathParts.last + suffix)
-  }
-  private def getFile(sym: Symbol, cls: JClass, suffix: String): AbstractFile =
-    getFile(outputDirectory(sym), cls, suffix)
-
   /** JVM code generation phase
    */
   class JvmPhase(prev: Phase) extends ICodePhase(prev) {
