@@ -6,7 +6,7 @@ import java.lang.reflect.Array
 
 /** The mirror for standard runtime reflection from Java.
  */
-class Mirror extends Universe with RuntimeTypes with api.Mirror {
+class Mirror extends Universe with RuntimeTypes with ToolBoxes with api.Mirror {
   
   import definitions._
     
@@ -38,6 +38,8 @@ class Mirror extends Universe with RuntimeTypes with api.Mirror {
   
   def staticClass(name: String): Symbol = definitions.getClass(newTypeName(name))
   def staticModule(name: String): Symbol = definitions.getModule(newTermName(name))
+  
+  def freeVar(name: String, info: Type, value: Any) = new FreeVar(name, info, value)
   
  /** Selects type symbol with given name from the defined members of prefix type
    */
