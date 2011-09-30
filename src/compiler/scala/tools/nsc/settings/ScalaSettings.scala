@@ -28,7 +28,7 @@ trait ScalaSettings extends AbsScalaSettings
    *  - Otherwise, if CLASSPATH is set, it is that
    *  - If neither of those, then "." is used.
    */
-  protected def defaultClasspath = Option(sys.props("CLASSPATH")) getOrElse "."
+  protected def defaultClasspath = sys.env.getOrElse("CLASSPATH", ".")
 
   /** Disable a setting */
   def disable(s: Setting) = allSettings -= s
@@ -158,6 +158,7 @@ trait ScalaSettings extends AbsScalaSettings
   val Ytyperdebug   = BooleanSetting    ("-Ytyper-debug", "Trace all type assignments.")
   val Yinferdebug   = BooleanSetting    ("-Yinfer-debug", "Trace type inference and implicit search.")
   val Ypmatdebug    = BooleanSetting    ("-Ypmat-debug", "Trace all pattern matcher activity.")
+  val Yreifydebug    = BooleanSetting   ("-Yreify-debug", "Trace reification actions.")
   val Yreplsync     = BooleanSetting    ("-Yrepl-sync", "Do not use asynchronous code for repl startup")
   val Yrepldebug    = BooleanSetting    ("-Yrepl-debug", "Trace all repl activity.") .
                                           withPostSetHook(_ => interpreter.replProps.debug setValue true)

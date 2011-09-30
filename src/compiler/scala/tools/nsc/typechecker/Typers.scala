@@ -712,8 +712,7 @@ trait Typers extends Modes with Adaptations {
      *  (11) Widen numeric literals to their expected type, if necessary
      *  (12) When in mode EXPRmode, convert E to { E; () } if expected type is scala.Unit.
      *  (13) When in mode EXPRmode, apply AnnotationChecker conversion if expected type is annotated.
-     *  (14) When in more EXPRmode, convert E to Code.lift(E) if expected type is Code[_]
-     *  (15) When in mode EXPRmode, apply a view
+     *  (14) When in mode EXPRmode, apply a view
      *  If all this fails, error
      */
     protected def adapt(tree: Tree, mode: Int, pt: Type, original: Tree = EmptyTree): Tree = {
@@ -972,8 +971,6 @@ trait Typers extends Modes with Adaptations {
                       new ApplyImplicitView(coercion, List(tree)) setPos tree.pos, mode, pt)
                   }
                 }
-                if (isCodeType(pt) && !isCodeType(tree.tpe) && !tree.tpe.isError) 
-                  return adapt(lifted(tree), mode, pt, original)
               }
               if (settings.debug.value) {
                 log("error tree = " + tree)
@@ -1119,14 +1116,14 @@ trait Typers extends Modes with Adaptations {
       namer.enterValueParams(context.owner, vparamss)
       typed(cbody)
     }
-    
+
     private def validateNoCaseAncestor(clazz: Symbol) = {
       if (!phase.erasedTypes) {
         for (ancestor <- clazz.ancestors find (_.isCase)) {
           unit.error(clazz.pos, ( 
-            "case class `%s' has case ancestor `%s'. Case-to-case inheritance is prohibited."+
-            " To overcome this limitation use extractors to pattern match on non-leaf nodes."
-          ).format(clazz, ancestor))
+            "case %s has case ancestor %s, but case-to-case inheritance is prohibited."+
+            " To overcome this limitation, use extractors to pattern match on non-leaf nodes."
+          ).format(clazz, ancestor.fullName))
         }
       }
     }
@@ -1216,8 +1213,26 @@ trait Typers extends Modes with Adaptations {
 */
 
         //Console.println("parents("+clazz") = "+supertpt :: mixins);//DEBUG
-        supertpt :: mixins mapConserve (tpt => checkNoEscaping.privates(clazz, tpt))
-      } catch {
+
+        // Certain parents are added in the parser before it is known whether
+        // that class also declared them as parents.  For instance, this is an
+        // error unless we take corrective action here:
+        //
+        //   case class Foo() extends Serializable
+        //
+        // So we strip the duplicates before typer.
+        def fixDuplicates(remaining: List[Tree]): List[Tree] = remaining match {
+          case Nil      => Nil
+          case x :: xs  =>
+            val sym = x.symbol
+            x :: fixDuplicates(
+              if (isPossibleSyntheticParent(sym)) xs filterNot (_.symbol == sym)
+              else xs
+            )
+        }
+        fixDuplicates(supertpt :: mixins) mapConserve (tpt => checkNoEscaping.privates(clazz, tpt))
+      }
+      catch {
         case ex: TypeError =>
           templ.tpe = null
           reportTypeError(templ.pos, ex)
@@ -3711,7 +3726,7 @@ trait Typers extends Modes with Adaptations {
           // unit is null here sometimes; how are we to know when unit might be null? (See bug #2467.)
           if (settings.warnSelectNullable.value && isPotentialNullDeference && unit != null)
             unit.warning(tree.pos, "potential null pointer dereference: "+tree)
-
+          
           val selection = result match {
             // could checkAccessible (called by makeAccessible) potentially have skipped checking a type application in qual?
             case SelectFromTypeTree(qual@TypeTree(), name) if qual.tpe.typeArgs nonEmpty => // TODO: somehow the new qual is not checked in refchecks
