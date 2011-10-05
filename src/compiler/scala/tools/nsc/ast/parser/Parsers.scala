@@ -899,7 +899,7 @@ self =>
       }
       def simpleTypeRest(t: Tree): Tree = in.token match {
         case HASH     => simpleTypeRest(typeProjection(t))
-        case LBRACKET => simpleTypeRest(atPos(t.pos.startOrPoint)(AppliedTypeTree(t, typeArgs())))
+        case LBRACKET => simpleTypeRest(atPos(t.pos.startOrPoint, t.pos.point)(AppliedTypeTree(t, typeArgs())))
         case _        => t
       }
       
@@ -2667,7 +2667,7 @@ self =>
           else List(
             AppliedTypeTree(
               productConstrN(arity),
-              vparamss.head map (vd => vd.tpt)
+              vparamss.head map (vd => vd.tpt.duplicate setPos vd.tpt.pos.focus)
             )
           )
         }
@@ -2700,7 +2700,6 @@ self =>
             if (mods.isCase) List(productConstr, serializableConstr) ++ extraCaseParents
             else Nil
           )
-
           Template(parents, self, constrMods, vparamss, argss, body, o2p(tstart))
         }
       }
