@@ -14,17 +14,18 @@ class ScalaJribbleCompiler extends JribbleCompiler {
   private val settingArgs = List(
     "-g:notailcalls",
     "-Xplugin-classes:scala.tools.factorymanifests.FactoryManifestsPlugin")
+  private val files = scala.collection.mutable.Buffer[AbstractFile]()
 
   override def addClassBytes(internalName: String, classBytes: Array[Byte]) {
     input.addClassBytes(internalName, classBytes);
   }
 
   override def addJavaSource(internalName: String, content: String) {
-    input.addJavaSource(internalName, content)
+    files += input.addJavaSource(internalName, content)
   }
 
   override def addSource(internalName: String, content: String) {
-    input.addSource(internalName, content)
+    files += input.addSource(internalName, content)
   }
 
   /** Invokes the compiler and returns the new units. */
@@ -44,34 +45,24 @@ class ScalaJribbleCompiler extends JribbleCompiler {
       }
     }
     val run = new compiler.Run();
-    // find all .jribble files by internal name
-    val jribble = new scala.collection.mutable.HashMap[String, AbstractFile]()
-    find(jribble, output, "jribble")
+    run.compileFiles(files.toList)
+    // map to group by compilation unit
+    val units = scala.collection.mutable.HashMap[String, JribbleUnitResult]()
     // find all .class files by internal name
     val classes = new scala.collection.mutable.HashMap[String, AbstractFile]()
     find(classes, output, "class")
     // find all errors by internal name
     val errors = new scala.collection.mutable.HashMap[String, String]()
-    jribble map { case (internalName, jribble) =>
-      // for now don't group by compilation unit
-      val result = new JribbleUnitResult(internalName)
-      val bytes = classes.getOrElse(internalName, sys.error(".class not found " + internalName))
-      val cr = new JribbleClassResult(internalName, read(bytes.input), new String(read(jribble.input)))
-      result.classes.add(cr)
-      result
+    classes foreach { case (internalName, classFile) =>
+      println("On " + internalName)
+      val sourceFileName = compiler.genJVM.internalNameToSourceName.getOrElse(internalName, sys.error("source file not found for " + internalName))
+      println("From " + sourceFileName)
+      val jribbleAst = compiler.genJribble.jribbleTypes.getOrElse(internalName, sys.error("jribble not found for " + internalName))
+      val unit = units.getOrElseUpdate(sourceFileName, new JribbleUnitResult(internalName))
+      val cr = new JribbleClassResult(internalName, classFile.toByteArray, jribbleAst)
+      unit.classes.add(cr)
     }
-  }
-
-  // hacky utility method to read InputStream -> Array[Byte]
-  private def read(in: java.io.InputStream): Array[Byte] = {
-    val baos = new java.io.ByteArrayOutputStream
-    var buffer = new Array[Byte](1024)
-    var read = in.read(buffer, 0, buffer.length)
-    while (read != -1) {
-      baos.write(buffer, 0, read)
-      read = in.read(buffer, 0, buffer.length)
-    }
-    baos.toByteArray
+    units.values
   }
   
   private def find(m: scala.collection.mutable.Map[String, AbstractFile], d: AbstractFile, ext: String): Unit = {
@@ -95,23 +86,26 @@ class InMemoryPath(override val name: String) extends ClassPath[AbstractFile] {
   override val packages = new scala.collection.mutable.ArrayBuffer[InMemoryPath]()
   override val sourcepaths: IndexedSeq[AbstractFile] = IndexedSeq()
 
-  def addClassBytes(internalName: String, classBytes: Array[Byte]) {
+  def addClassBytes(internalName: String, classBytes: Array[Byte]): AbstractFile = {
     val parts = internalName.split('/')
     val f = new io.VirtualFile(parts.last + ".class", parts.dropRight(1).mkString("/"))
     f.output
     getPackage(parts.dropRight(1)).classes += new ClassRep(Some(f), None)
+    f
   }
 
-  def addJavaSource(internalName: String, content: String) {
+  def addJavaSource(internalName: String, content: String): AbstractFile = {
     val parts = internalName.split('/')
     val f = new io.VirtualFile(parts.last + ".java", parts.dropRight(1).mkString("/"))
     getPackage(parts.dropRight(1)).classes += new ClassRep(None, Some(f))
+    f
   }
 
-  def addSource(internalName: String, content: String) {
+  def addSource(internalName: String, content: String): AbstractFile = {
     val parts = internalName.split('/')
     val f = new io.VirtualFile(parts.last + ".scala", parts.dropRight(1).mkString("/"))
     getPackage(parts.dropRight(1)).classes += new ClassRep(None, Some(f))
+    f
   }
 
   private def getPackage(parts: Array[String]): InMemoryPath = {

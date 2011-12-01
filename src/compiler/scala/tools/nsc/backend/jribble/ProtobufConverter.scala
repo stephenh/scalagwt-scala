@@ -5,7 +5,7 @@ import scala.collection.{mutable=>mut}
 import scala.tools.nsc._
 import scala.tools.nsc.backend._
 import scala.tools.nsc.backend.icode._
-import scala.tools.nsc.backend.jribble.{JribbleProtos=>P}
+import com.google.jribble.unit.{JribbleProtos=>P}
 import scala.tools.nsc.symtab.Flags._
 import scala.tools.nsc.util.{Set=>_, _}
 

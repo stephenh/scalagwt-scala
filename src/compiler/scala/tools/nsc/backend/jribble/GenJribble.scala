@@ -12,6 +12,7 @@ import scala.collection.mutable.ListBuffer
 
 import com.google.protobuf.GeneratedMessage
 import com.google.protobuf.TextFormat
+import com.google.jribble.unit.{JribbleProtos=>P}
  
 import scala.tools.nsc._
 import scala.tools.nsc.symtab.Flags._
@@ -32,6 +33,9 @@ with JribbleNormalization
   
   val phaseName = "genjribble"
 
+  // for storing jribble ASTs until ScalaJribbleCompiler needs them 
+  val jribbleTypes = scala.collection.mutable.Map[String, P.DeclaredType]()
+
   /** Create a new phase */
   override def newPhase(p: Phase) = new JribblePhase(p)
 
@@ -49,16 +53,8 @@ with JribbleNormalization
 
     var pkgName: String = null      
     
-    def emitProto(proto: GeneratedMessage, symbol: Symbol, suffix: String) {
-      val out = new BufferedOutputStream(new FileOutputStream(getFile(symbol, suffix)))
-      if (settings.jribbleText.value) {
-        val writer = new OutputStreamWriter(out, "UTF-8")
-        TextFormat.print(proto, writer)
-        writer.flush()
-      } else {
-        proto.writeTo(out)
-      }
-      out.close()
+    def emitProto(proto: P.DeclaredType, symbol: Symbol) {
+      jribbleTypes += symbol.javaBinaryName -> proto
     }
       
     private def gen(tree: Tree, unit: CompilationUnit) {
@@ -89,12 +85,12 @@ with JribbleNormalization
 
 
         // print the main class
-        emitProto(proto.build, clazz.symbol, converter.moduleSuffix(clazz.symbol) + ".jribble")
+        emitProto(proto.build, clazz.symbol)
         
         // If it needs a mirror class, add one
         if (isStaticModule(clazz.symbol) && isTopLevelModule(clazz.symbol) && clazz.symbol.companionClass == NoSymbol) {
           val mirror = converter.mirrorClassFor(clazz.symbol)
-          emitProto(mirror, clazz.symbol, ".jribble")
+          emitProto(mirror, clazz.symbol)
         }
       }
         

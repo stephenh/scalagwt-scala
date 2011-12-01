@@ -166,6 +166,7 @@ PROPERTIES
   <property name="ant.jar" value="${ant.home}/lib/ant.jar"/>
   <property name="scalacheck.jar" value="${lib.dir}/scalacheck.jar"/>
   <property name="protobuf.jar" value="${lib.dir}/protobuf-java-2.4.1.jar"/>
+  <property name="jribble.jar" value="${lib.dir}/jribble.jar"/>
 	  
   <!-- Sets location of build folders -->
   <property name="build.dir" value="${basedir}/build"/>
@@ -367,6 +368,7 @@ LOCAL REFERENCE BUILD (LOCKER)
         <path refid="aux.libs"/>
         <pathelement location="${jline.jar}"/>
         <pathelement location="${protobuf.jar}"/>
+        <pathelement location="${jribble.jar}"/>
       </compilationpath>
     </scalacfork>
     <propertyfile file="${build-locker.dir}/classes/compiler/compiler.properties">
@@ -485,6 +487,7 @@ QUICK BUILD (QUICK)
       <pathelement location="${forkjoin.jar}"/>
       <pathelement location="${ant.jar}"/>
       <pathelement location="${protobuf.jar}"/>
+      <pathelement location="${jribble.jar}"/>
     </path>
   </target>
 
@@ -631,6 +634,7 @@ QUICK BUILD (QUICK)
         <path refid="aux.libs"/>
         <pathelement location="${jline.jar}"/>
         <pathelement location="${protobuf.jar}"/>
+        <pathelement location="${jribble.jar}"/>
       </compilationpath>
     </scalacfork>
     <propertyfile file="${build-quick.dir}/classes/compiler/compiler.properties">
@@ -960,6 +964,7 @@ QUICK BUILD (QUICK)
       <path refid="aux.libs"/>
       <pathelement location="${jline.jar}"/>
       <pathelement location="${protobuf.jar}"/>
+      <pathelement location="${jribble.jar}"/>
     </path>
     <taskdef name="quick-bin" classname="scala.tools.ant.ScalaTool" classpathref="quick.bin.classpath"/>
     <mkdir dir="${build-quick.dir}/bin"/>
@@ -1054,13 +1059,8 @@ PACKED QUICK BUILD (PACK)
 
   <target name="pack.lib-jribble" depends="quick.lib-jribble,pack.pre-lib-jribble" unless="pack.lib-jribble.available">
     <mkdir dir="${build-pack.dir}/lib"/>
-<<<<<<< HEAD
-    <jar destfile="${build-pack.dir}/lib/scala-library-gwt.jar">
-      <fileset dir="${build-quick.dir}/gwt/library"/>
-=======
     <jar destfile="${build-pack.dir}/lib/scala-library-jribble.jar">
       <fileset dir="${build-quick.dir}/jdk2ikvm/library"/>
->>>>>>> Spike using embedding to produce ScalaLibrary.gwtar.
     </jar>
   </target>
 
@@ -1089,6 +1089,7 @@ PACKED QUICK BUILD (PACK)
     </jar>
     <copy file="${jline.jar}" toDir="${build-pack.dir}/lib"/>
     <copy file="${protobuf.jar}" toDir="${build-pack.dir}/lib"/>
+    <copy file="${jribble.jar}" toDir="${build-pack.dir}/lib"/>
 
     <copy todir="${build-pack.dir}/lib">
       <fileset dir="${lib-extra.dir}">

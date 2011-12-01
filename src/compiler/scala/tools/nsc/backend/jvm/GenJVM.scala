@@ -41,6 +41,9 @@ abstract class GenJVM extends SubComponent with GenJVMUtil with GenAndroid with 
 
   val phaseName = "jvm"
 
+  /** Hack to regroup classes back into compilation units later. */
+  val internalNameToSourceName = scala.collection.mutable.Map[String, String]()
+
   /** Create a new phase */
   override def newPhase(p: Phase): Phase = new JvmPhase(p)
 
@@ -238,6 +241,7 @@ abstract class GenJVM extends SubComponent with GenJVMUtil with GenAndroid with 
     def emitClass(jclass: JClass, sym: Symbol) {
       addInnerClasses(jclass)
       writeClass("" + sym.name, jclass, sym)
+      internalNameToSourceName += jclass.getName -> jclass.getSourceFileName
     }
 
     /** Returns the ScalaSignature annotation if it must be added to this class,
